@@ -22,7 +22,7 @@ Anyone can register an AWS account and create S3 buckets for file uploads. But e
 
 MyS3 is built using NET Core. It can be copied or imported into any kind of NET project.
 
-## Client Features
+### Client Features
 
 - Constantly monitoring for file changes.
 - Uses symmetric encryption (AES-128 GCM) to encrypt file and it's file path.
@@ -31,6 +31,21 @@ MyS3 is built using NET Core. It can be copied or imported into any kind of NET 
 - Has two types of clients. A graphical interface client (Windows only) and a console client.
 
 See <code>Docs/UserManual.pdf</code> to get precise instructions with screenshots for complete AWS and MyS3 setup.
+
+### Getting Started
+
+The GUI client:
+1. Download the ZIP file with the GUI client. (This is <code>MyS3.GUI.win-x64.zip</code>)
+2. Unzip it's contents and move the entire folder to <code>C:\Program Files</code>.
+3. Open the folder and double click the EXE file.
+4. Right click on the MyS3 icon down at the taskbar and select to pin it.
+
+The console client (CLI client):
+1. Download the ZIP-file with the CLI client for your operating system. (For Windows this is <code>MyS3.CLI.win-x64.zip</code>)
+2. Unzip the content and move the entire folder to where you want it.
+3. Open a console window / a terminal and change directory to the MyS3's executable.
+4. Type and run <code>MyS3.CLI.exe</code> on Windows or <code>./MyS3.CLI</code> on Linux.
+5. Consider putting your command line arguments in a BAT or SH file when everything works OK.
 
 ## License
 
