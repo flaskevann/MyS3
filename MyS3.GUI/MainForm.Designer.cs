@@ -138,26 +138,26 @@
             // userGuideMenuItem
             // 
             this.userGuideMenuItem.Name = "userGuideMenuItem";
-            this.userGuideMenuItem.Size = new System.Drawing.Size(206, 22);
-            this.userGuideMenuItem.Text = "&User guide (online video)";
+            this.userGuideMenuItem.Size = new System.Drawing.Size(174, 22);
+            this.userGuideMenuItem.Text = "&User guide (online)";
             this.userGuideMenuItem.Click += new System.EventHandler(this.userGuideMenuItem_Click);
             // 
             // helpSeparatorMenuItem
             // 
             this.helpSeparatorMenuItem.Name = "helpSeparatorMenuItem";
-            this.helpSeparatorMenuItem.Size = new System.Drawing.Size(203, 6);
+            this.helpSeparatorMenuItem.Size = new System.Drawing.Size(171, 6);
             // 
             // statisticsMenuItem
             // 
             this.statisticsMenuItem.Name = "statisticsMenuItem";
-            this.statisticsMenuItem.Size = new System.Drawing.Size(206, 22);
+            this.statisticsMenuItem.Size = new System.Drawing.Size(174, 22);
             this.statisticsMenuItem.Text = "&Statistics";
             this.statisticsMenuItem.Click += new System.EventHandler(this.statisticsMenuItem_Click);
             // 
             // aboutMenuItem
             // 
             this.aboutMenuItem.Name = "aboutMenuItem";
-            this.aboutMenuItem.Size = new System.Drawing.Size(206, 22);
+            this.aboutMenuItem.Size = new System.Drawing.Size(174, 22);
             this.aboutMenuItem.Text = "&About";
             this.aboutMenuItem.Click += new System.EventHandler(this.aboutMenuItem_Click);
             // 

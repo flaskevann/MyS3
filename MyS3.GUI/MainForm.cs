@@ -7,7 +7,7 @@ namespace MyS3.GUI
 {
     public partial class MainForm : Form
     {
-        public static readonly string USER_MANUAL_URL = "https://www.google.com";
+        public static readonly string USER_MANUAL_URL = "https://github.com/flaskevann/MyS3/blob/master/Docs/UserManual.pdf";
 
         private List<MyS3Runner> myS3s = new List<MyS3Runner>();
 
