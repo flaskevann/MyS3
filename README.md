@@ -22,6 +22,8 @@ Anyone can register an AWS account and create S3 buckets for file uploads. But e
 
 MyS3 is built using NET Core. It can be copied or imported into any kind of NET project.
 
+See <code>Docs/UserManual.pdf</code> to get precise instructions with screenshots for complete AWS and MyS3 setup.
+
 ### Client Features
 
 - Constantly monitoring for file changes.
@@ -31,8 +33,6 @@ MyS3 is built using NET Core. It can be copied or imported into any kind of NET 
 - Has two types of clients. A graphical interface client (Windows only) and a console client.
 
 IMPORTANT: *Yes, MyS3 can run on multiple computers at the same time and share the same S3 bucket. But MyS3 doesn't support merging of files with identical file paths. It creates file versions instead. So whoever saves his file last "wins". Avoid this by not writing to the same file path from different locations at the same time. Each person using a shared bucket should put his files in his own unique folder. (And if your file still gets overwritten just restore it.)* 
-
-See <code>Docs/UserManual.pdf</code> to get precise instructions with screenshots for complete AWS and MyS3 setup.
 
 ### Getting Started
 
