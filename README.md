@@ -12,15 +12,17 @@ Remember, everything you upload is very likely to stay in the cloud forever. And
 
 ...
 
-The rest of the pitch is at <code>Docs/WhyUseMyS3.pdf</code>
+Read the rest of the pitch at <code>Docs/WhyUseMyS3.pdf</code>
 
 ## What
 
-MyS3 makes is possible to encrypt file data on the fly and upload to Simple Storage Service (S3), which is part of Amazon Web Services (AWS).
+MyS3 is a tool that makes is possible to encrypt file data on the fly and upload to Simple Storage Service (S3), which is part of Amazon Web Services (AWS).
 
-Anyone can register an AWS account and create S3 buckets for file uploads. But enabling hassle free and secure file encryption is an entirely different matter. MyS3 does this for you.
+Anyone can register an AWS account and create S3 buckets for file uploads. But enabling hassle free and secure file encryption is an entirely different matter. MyS3 does this for you after you setup your own AWS resources.
 
-## Features
+MyS3 is built using NET Core. It can be copied or imported into any kind of NET project.
+
+## Client Features
 
 - Constantly monitoring for file changes.
 - Uses symmetric encryption (AES-128 GCM) to encrypt file and it's file path.
@@ -28,7 +30,7 @@ Anyone can register an AWS account and create S3 buckets for file uploads. But e
 - Can be run from multiple computers at the same time.
 - Has two types of clients. A graphical interface client (Windows only) and a console client.
 
-Se <code>Docs/UserManual.pdf</code> to get precise instructions with screenshots for complete AWS and MyS3 setup.
+See <code>Docs/UserManual.pdf</code> to get precise instructions with screenshots for complete AWS and MyS3 setup.
 
 ## License
 
