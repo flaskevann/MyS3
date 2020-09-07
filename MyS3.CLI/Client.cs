@@ -14,6 +14,7 @@ namespace MyS3.CLI
             Console.Title = "MyS3";
 
             // Get settings
+            bool version = false;
             bool verbose = false;
             bool runTests = false;
             string bucket = null;
@@ -30,7 +31,11 @@ namespace MyS3.CLI
             bool printUse = false;
             foreach (string arg in args)
             {
-                if (arg == "--verbose")
+                if (arg == "--version")
+                {
+                    version = true;
+                }
+                else if (arg == "--verbose")
                 {
                     verbose = true;
                 }
@@ -87,10 +92,22 @@ namespace MyS3.CLI
                     printUse = true;
                 }
             }
-            if (bucket == null || region == null || awsAccessKeyID == null || awsSecretAccessKey == null || encryptionPassword == null) printUse = true;
+            if (version)
+            {
+                Console.WriteLine("MyS3.CLI version " + typeof(Client).Assembly.GetName().Version);
+                Console.WriteLine("MyS3 version " + typeof(MyS3Runner).Assembly.GetName().Version);
+
+                return;
+            }
+            else if (bucket == null || region == null || awsAccessKeyID == null || awsSecretAccessKey == null || encryptionPassword == null)
+            {
+                printUse = true;
+            }
             if (printUse)
             {
                 Console.WriteLine("MyS3.CLI settings:");
+                Console.WriteLine("  --version");
+                Console.WriteLine("OR");
                 Console.WriteLine("  --verbose");
                 Console.WriteLine("  --run-tests");
                 Console.WriteLine("  --bucket=<name of your bucket>*");
@@ -108,7 +125,7 @@ namespace MyS3.CLI
                 Console.WriteLine();
                 Console.WriteLine("Use '--run-tests' to check your settings if this is your first run!");
                 Console.WriteLine();
-                Console.WriteLine("If run by multiple clients use '--shared-bucket' to enable more S3 and MyS3 comparisons");
+                Console.WriteLine("If S3 bucket is used by multiple clients use '--shared-bucket' to enable extra S3 and MyS3 comparisons");
                 Console.WriteLine();
                 Console.WriteLine("Windows example:");
                 Console.WriteLine("MyS3.CLI --verbose --bucket=myfiles --region=eu-west-1 --aws-access-key=AKIA123etc,abc123etc");
@@ -122,11 +139,6 @@ namespace MyS3.CLI
 
                 return;
             }
-
-            // ---
-
-            Tools.Log("MyS3.CLI version " + typeof(Client).Assembly.GetName().Version);
-            Tools.Log("MyS3 version " + typeof(MyS3Runner).Assembly.GetName().Version);
 
             // ---
 

@@ -11,6 +11,9 @@
     <Company>Ove Bakken</Company>
     <Version>3.0.1</Version>
     <Copyright>MIT</Copyright>
+    <SignAssembly>false</SignAssembly>
+    <DelaySign>false</DelaySign>
+    <AssemblyOriginatorKeyFile>Visual Studio Signing Key.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <ItemGroup>

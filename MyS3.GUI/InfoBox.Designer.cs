@@ -67,7 +67,7 @@
             this.Name = "InfoBox";
             this.ShowInTaskbar = false;
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Info";
             this.TopMost = true;
             this.ResumeLayout(false);

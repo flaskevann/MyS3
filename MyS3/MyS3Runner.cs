@@ -14,6 +14,7 @@ using Amazon.S3;
 using Amazon.S3.Model;
 
 using EncryptionAndHashingLibrary;
+using System.ComponentModel;
 
 namespace MyS3
 {
@@ -93,30 +94,146 @@ namespace MyS3
 
         private Dictionary<string, string> myS3Files = new Dictionary<string, string>(); // MyS3 object paths ==> S3 object paths
 
-        public ImmutableList<string> UploadQueue { get { lock(uploadQueue) return uploadQueue.ToImmutableList<string>(); } }
+        public ImmutableList<string> UploadQueue
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(uploadQueue, 10, ref acquiredLock);
+                    if (acquiredLock)
+                        return uploadQueue.ToImmutableList<string>();
+                    else
+                        return null;
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(uploadQueue);
+                }
+            }
+        }
         private List<string> uploadQueue = new List<string>(); // MyS3 object paths
         private List<string> uploadedList = new List<string>(); // MyS3 object paths
 
-        public ImmutableList<string> DownloadQueue { get { lock(downloadQueue) return downloadQueue.ToImmutableList<string>(); } }
+        public ImmutableList<string> DownloadQueue
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(downloadQueue, 10, ref acquiredLock);
+                    if (acquiredLock)
+                        return downloadQueue.ToImmutableList<string>();
+                    else
+                        return null;
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(downloadQueue);
+                }
+            }
+        }
         private List<string> downloadQueue = new List<string>(); // S3 object paths
         private List<string> downloadedList = new List<string>(); // S3 object paths
 
-        public ImmutableList<string> NamedDownloadQueue { get { lock(namedDownloadQueue) return namedDownloadQueue.ToImmutableList<string>(); } }
+        public ImmutableList<string> NamedDownloadQueue
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(namedDownloadQueue, 10, ref acquiredLock);
+                    if (acquiredLock)
+                        return namedDownloadQueue.ToImmutableList<string>();
+                    else
+                        return null;
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(namedDownloadQueue);
+                }
+            }
+        }
         private List<string> namedDownloadQueue = new List<string>(); // MyS3 object paths
         private Dictionary<string, string> renameQueue = new Dictionary<string, string>(); // MyS3 new file paths ==> old file paths
         private List<string> renamedList = new List<string>(); // MyS3 new file paths
 
-        public ImmutableList<string> RemoveQueue { get { lock(removeQueue) return removeQueue.ToImmutableList<string>(); } }
+        public ImmutableList<string> RemoveQueue
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(removeQueue, 10, ref acquiredLock);
+                    if (acquiredLock)
+                        return removeQueue.ToImmutableList<string>();
+                    else
+                        return null;
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(removeQueue);
+                }
+            }
+        }
         private List<string> removeQueue = new List<string>(); // MyS3 object paths
 
-        public ImmutableList<string> RestoreDownloadQueue { get { lock(restoreDownloadQueue) return restoreDownloadQueue.Keys.ToImmutableList<string>(); } }
+        public ImmutableList<string> RestoreDownloadQueue
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(restoreDownloadQueue, 10, ref acquiredLock);
+                    if (acquiredLock)
+                        return restoreDownloadQueue.Keys.ToImmutableList<string>();
+                    else
+                        return null;
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(restoreDownloadQueue);
+                }
+            }
+        }
         private Dictionary<string, List<string>> restoreDownloadQueue = new Dictionary<string, List<string>>(); // s3 file paths ==> versionIds
 
-        public ImmutableList<string> NamedRestoreDownloadQueue { get { lock(namedRestoreDownloadQueue) return namedRestoreDownloadQueue.ToImmutableList<string>(); } }
+        public ImmutableList<string> NamedRestoreDownloadQueue
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(namedRestoreDownloadQueue, 10, ref acquiredLock);
+                    if (acquiredLock)
+                        return namedRestoreDownloadQueue.ToImmutableList<string>();
+                    else
+                        return null;
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(namedRestoreDownloadQueue);
+                }
+            }
+        }
         private List<string> namedRestoreDownloadQueue = new List<string>(); // MyS3 object paths
 
         private static readonly int PAUSE_BETWEEN_EACH_S3_AND_MYS3_COMPARISON_IN_SECONDS = 60; // 1 minute between each comparison check
-        private static readonly int WAIT_OUT_FILE_ACTIVITY_HANDLERS = 1000*10; // ms - 10 sec in case of really slow old computer
+
+        private static readonly int PAUSE_BETWEEN_EACH_S3_OPERATION = 100;
+        private static readonly int INACTIVE_PAUSE = 1000;
 
         public MyS3Runner(string bucket, string region,
             string awsAccessKeyID, string awsSecretAccessKey,
@@ -284,15 +401,60 @@ namespace MyS3
 
         // ---
 
-        public int NumberOfFiles { get { lock (myS3Files) return myS3Files.Count; } }
+        public int NumberOfFiles
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(myS3Files, 10, ref acquiredLock);
+                    if (acquiredLock)
+                    {
+                        int counter = 0;
+                        foreach (KeyValuePair<string, string> kvp in myS3Files)
+                            if (File.Exists(myS3Path + kvp.Key))
+                                counter++;
+
+                        return counter;
+                    }
+                    else
+                    {
+                        return -1;
+                    }
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(myS3Files);
+                }
+            }
+        }
         public long GetTotalFileSize()
         {
-            long size = 0;
-            lock(myS3Files)
-                foreach (KeyValuePair<string, string> kvp in myS3Files)
-                    if (File.Exists(myS3Path + kvp.Key))
-                        size += new FileInfo(myS3Path + kvp.Key).Length;
-            return size;
+            bool acquiredLock = false;
+            try
+            {
+                Monitor.TryEnter(myS3Files, 10, ref acquiredLock);
+                if (acquiredLock)
+                {
+                    long size = 0;
+                    foreach (KeyValuePair<string, string> kvp in myS3Files)
+                        if (File.Exists(myS3Path + kvp.Key))
+                            size += new FileInfo(myS3Path + kvp.Key).Length;
+
+                    return size;
+                }
+                else
+                {
+                    return -1;
+                }
+            }
+            finally
+            {
+                if (acquiredLock)
+                    Monitor.Exit(myS3Files);
+            }
         }
 
         public void TriggerS3AndMyS3Comparison()
@@ -746,6 +908,8 @@ namespace MyS3
                 while (!stop)
                 {
                     int uploadCounter = 1;
+                    lock (uploadedList) uploadedList.Clear();
+
                     bool hasUploads = false;
                     lock (uploadQueue) hasUploads = uploadQueue.Count > 0;
                     while (hasUploads && !pauseUploads)
@@ -765,10 +929,12 @@ namespace MyS3
                         {
                             // Remove from queue
                             lock (uploadQueue)
+                            {
                                 if (uploadQueue.Contains(offlineFilePathInsideMyS3))
                                     uploadQueue.Remove(offlineFilePathInsideMyS3);
 
-                            lock (uploadQueue) hasUploads = uploadQueue.Count > 0;
+                                hasUploads = uploadQueue.Count > 0;
+                            }
 
                             continue;
                         }
@@ -822,7 +988,7 @@ namespace MyS3
 
                             if (verboseLogFunc != null)
                                 lock(uploadQueue)
-                                verboseLogFunc("Local file \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" starts uploading [" +
+                                    verboseLogFunc("Local file \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" starts uploading [" +
                                         uploadCounter + "/" + (uploadCounter + uploadQueue.Count - 1) + "][" + Tools.GetFileSizeAsText(encryptedFilePathTemp) + "]");
 
                             // Start upload
@@ -894,18 +1060,9 @@ namespace MyS3
 
                                 uploadCounter++;
 
-                                // Add to special blocked queue - in case of slow file activity handling
+                                // Add to special blocked queue - in case of slow file activity handling that can trigger re-upload when set write time
                                 lock (uploadedList)
                                     uploadedList.Add(s3FilePath);
-                                ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
-                                {
-                                    string uploadedS3FilePath = s3FilePath;
-
-                                    Thread.Sleep(WAIT_OUT_FILE_ACTIVITY_HANDLERS);
-
-                                    lock (uploadedList)
-                                        uploadedList.Remove(uploadedS3FilePath);
-                                }));
                             }
                         }
                         catch (Exception ex)
@@ -926,9 +1083,11 @@ namespace MyS3
                         }
 
                         lock (uploadQueue) hasUploads = uploadQueue.Count > 0;
+
+                        Thread.Sleep(PAUSE_BETWEEN_EACH_S3_OPERATION);
                     }
 
-                    Thread.Sleep(25);
+                    Thread.Sleep(INACTIVE_PAUSE);
                 }
             }));
         }
@@ -947,6 +1106,8 @@ namespace MyS3
                 while (!stop)
                 {
                     int downloadCounter = 1;
+                    lock (downloadedList) downloadedList.Clear();
+
                     bool hasDownloads = false;
                     lock (downloadQueue) hasDownloads = downloadQueue.Count > 0;
                     while (hasDownloads && !pauseDownloads)
@@ -1060,15 +1221,6 @@ namespace MyS3
                                 // Add to block queue - in case of slow file activity handling
                                 lock (downloadedList)
                                     downloadedList.Add(s3FilePath);
-                                ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
-                                {
-                                    string downloadedS3FilePath = s3FilePath;
-
-                                    Thread.Sleep(WAIT_OUT_FILE_ACTIVITY_HANDLERS);
-
-                                    lock (downloadedList)
-                                        downloadedList.Remove(downloadedS3FilePath);
-                                }));
                             }
                         }
                         catch (CryptographicException)
@@ -1103,9 +1255,11 @@ namespace MyS3
                         }
 
                         lock (downloadQueue) hasDownloads = downloadQueue.Count > 0;
+
+                        Thread.Sleep(PAUSE_BETWEEN_EACH_S3_OPERATION);
                     }
 
-                    Thread.Sleep(25);
+                    Thread.Sleep(INACTIVE_PAUSE);
                 }
             }));
         }
@@ -1117,6 +1271,8 @@ namespace MyS3
                 while (!stop)
                 {
                     int renameCounter = 1;
+                    lock (renamedList) renamedList.Clear();
+
                     bool mustRename = false;
                     lock (renameQueue) mustRename = renameQueue.Count > 0;
                     while (mustRename)
@@ -1200,15 +1356,6 @@ namespace MyS3
                                     // Add to block queue - in case of slow file activity handling
                                     lock (renamedList)
                                         renamedList.Add(newS3FilePath);
-                                    ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
-                                    {
-                                        string newRenamedS3FilePath = newS3FilePath;
-
-                                        Thread.Sleep(WAIT_OUT_FILE_ACTIVITY_HANDLERS);
-
-                                        lock (renamedList)
-                                            renamedList.Remove(newRenamedS3FilePath);
-                                    }));
                                 }
                                 else
                                 {
@@ -1224,9 +1371,11 @@ namespace MyS3
                                 renameQueue.Remove(newOfflineFilePathInsideMyS3);
 
                         lock (renameQueue) mustRename = renameQueue.Count > 0;
+
+                        Thread.Sleep(PAUSE_BETWEEN_EACH_S3_OPERATION);
                     }
 
-                    Thread.Sleep(25);
+                    Thread.Sleep(INACTIVE_PAUSE);
                 }
             }));
         }
@@ -1289,9 +1438,11 @@ namespace MyS3
 
                             mustRemove = removeQueue.Count > 0;
                         }
+
+                        Thread.Sleep(PAUSE_BETWEEN_EACH_S3_OPERATION);
                     }
 
-                    Thread.Sleep(25);
+                    Thread.Sleep(INACTIVE_PAUSE);
                 }
             }));
         }
@@ -1558,7 +1709,11 @@ namespace MyS3
                     // Remove from queue = only one attempt
                     lock (restoreDownloadQueue)
                         restoreDownloadQueue.Remove(s3FilePath);
+
+                    Thread.Sleep(PAUSE_BETWEEN_EACH_S3_OPERATION);
                 }
+
+                Thread.Sleep(INACTIVE_PAUSE);
             }));
         }
 

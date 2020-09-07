@@ -115,15 +115,17 @@ namespace MyS3.GUI
                         // MyS3 file info
                         long numberOfFiles = myS3.NumberOfFiles;
                         long totalFileSize = myS3.GetTotalFileSize();
-
-                        // Update
-                        if (numberOfFiles != numberOfFilesLastChange || totalFileSize != totalFileSizeLastChange)
+                        if (numberOfFiles != -1 && totalFileSize != -1)
                         {
-                            numberOfFilesLastChange = numberOfFiles;
-                            totalFileSizeLastChange = totalFileSize;
+                            // Update
+                            if (numberOfFiles != numberOfFilesLastChange || totalFileSize != totalFileSizeLastChange)
+                            {
+                                numberOfFilesLastChange = numberOfFiles;
+                                totalFileSizeLastChange = totalFileSize;
 
-                            UpdateSizeUsedControl(numberOfFiles, totalFileSize);
-                            UpdateFileViewControl();
+                                UpdateSizeUsedControl(numberOfFiles, totalFileSize);
+                                UpdateFileViewControl();
+                            }
                         }
                     }
                     catch (Exception) { } // Stops disposed exceptions I can't get rid off
@@ -484,11 +486,15 @@ namespace MyS3.GUI
             }
             else
             {
+                // Get lists
                 ImmutableList<string> downloadQueue = myS3.DownloadQueue;
                 ImmutableList<string> namedDownloadQueue = myS3.NamedDownloadQueue;
                 ImmutableList<string> uploadQueue = myS3.UploadQueue;
                 ImmutableList<string> restoreDownloadQueue = myS3.RestoreDownloadQueue;
                 ImmutableList<string> namedRestoreDownloadQueue = myS3.NamedRestoreDownloadQueue;
+                if (downloadQueue == null || namedDownloadQueue == null || 
+                    uploadQueue == null ||
+                    restoreDownloadQueue == null || namedRestoreDownloadQueue == null) return;
 
                 // ---
 
