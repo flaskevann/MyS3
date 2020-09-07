@@ -2,7 +2,7 @@
 
 A simple tool for encrypting and syncing files to the Amazon cloud using S3.
 
-# Why
+## Why
 
 Are you using services like Dropbox, Google Drive, Microsoft OneDrive, etc? Do you trust them not to look at your personal photos, read your documents, etc? If so, why? Don't you know that surveillance is big business, and that your data is the currency?
 
@@ -10,14 +10,26 @@ Nobody knows what the future brings: What kind of society will we be living in? 
 
 Remember, everything you upload is very likely to stay in the cloud forever. And if you think you're in control, it's only imaginary. Legal mumbo jumbo in a terms of service (ToS) agreement, or something like GDPR, does nothing to make your data unreadable. You should instead put your trust in technical implementations that make it impossible.
 
-Read more at <code>Docs/WhyUseMyS3.pdf</code>
+...
 
-# What
+The rest of the pitch is at <code>Docs/WhyUseMyS3.pdf</code>
 
-MyS3 is a newly developed software which makes is possible to encrypt file data on the fly and upload the output to Simple Storage Service (S3), which is part of Amazon Web Services (AWS).
+## What
 
-Anyone can register an AWS account and create S3 buckets for file uploads. But enabling hassle free and secure file encryption is an entirely different matter. MyS3 does this for you and uses symmetric encryption (AES-128 GCM) before uploading anything to the AWS cloud.
+MyS3 makes is possible to encrypt file data on the fly and upload to Simple Storage Service (S3), which is part of Amazon Web Services (AWS).
 
-MyS3 has two types of clients you can run. A graphical interface client (Windows only) and a console client.
+Anyone can register an AWS account and create S3 buckets for file uploads. But enabling hassle free and secure file encryption is an entirely different matter. MyS3 does this for you.
+
+## Features
+
+- Constantly monitoring for file changes.
+- Uses symmetric encryption (AES-128 GCM) to encrypt file and it's file path.
+- Supports use of multiple AWS S3 buckets at the same time.
+- Can be run from multiple computers at the same time.
+- Has two types of clients. A graphical interface client (Windows only) and a console client.
 
 Se <code>Docs/UserManual.pdf</code> to get precise instructions with screenshots for complete AWS and MyS3 setup.
+
+## License
+
+Has a regular MIT license.
