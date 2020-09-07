@@ -111,7 +111,6 @@ namespace MyS3
 
         public ImmutableList<string> RestoreDownloadQueue { get { lock(restoreDownloadQueue) return restoreDownloadQueue.Keys.ToImmutableList<string>(); } }
         private Dictionary<string, List<string>> restoreDownloadQueue = new Dictionary<string, List<string>>(); // s3 file paths ==> versionIds
-        private Dictionary<string, List<string>> restoredDownloadList = new Dictionary<string, List<string>>(); // s3 file paths ==> versionIds
 
         public ImmutableList<string> NamedRestoreDownloadQueue { get { lock(namedRestoreDownloadQueue) return namedRestoreDownloadQueue.ToImmutableList<string>(); } }
         private List<string> namedRestoreDownloadQueue = new List<string>(); // MyS3 object paths
@@ -205,7 +204,10 @@ namespace MyS3
             fileMonitor = new FileMonitor(myS3Path,
                 IGNORED_DIRECTORIES_NAMES, IGNORED_FILE_EXTENSIONS,
                 Upload, Rename, Remove);
-            fileMonitor.Start();
+            ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
+            {
+                fileMonitor.Start();
+            }));
             if (verboseLogFunc != null)
                 verboseLogFunc("Started monitoring MyS3 folder and waiting for files to upload or download");
 
@@ -270,7 +272,8 @@ namespace MyS3
 
         public void Stop()
         {
-            fileMonitor.Stop();
+            lock (fileMonitor)
+                fileMonitor.Stop();
 
             Pause(true);
             stop = true;
@@ -281,7 +284,7 @@ namespace MyS3
 
         // ---
 
-        public int NumberOfFiles { get { return myS3Files.Count; } }
+        public int NumberOfFiles { get { lock (myS3Files) return myS3Files.Count; } }
         public long GetTotalFileSize()
         {
             long size = 0;
@@ -311,30 +314,28 @@ namespace MyS3
 
             // ---
 
-            ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
-            {
-                // Skip if paused or file in use or removed
-                if (UploadsPaused) return;
-                lock (uploadQueue) if (uploadQueue.Contains(offlineFilePathInsideMyS3)) return;
-                lock (uploadedList) if (uploadedList.Contains(s3FilePath)) return;
-                lock (downloadQueue) if (downloadQueue.Contains(s3FilePath)) return;
-                lock (downloadedList) if (downloadedList.Contains(s3FilePath)) return;
-                lock (removeQueue) if (removeQueue.Contains(offlineFilePathInsideMyS3)) return;
-                lock (renameQueue) if (renameQueue.ContainsKey(offlineFilePathInsideMyS3)) return;
-                lock (renamedList) if (renamedList.Contains(offlineFilePathInsideMyS3)) return;
-                if (!File.Exists(offlineFilePath)) return; // user can have removed file
+            // Skip if paused or file in use or removed
+            if (UploadsPaused) return;
 
-                // Add upload
-                lock (uploadQueue)
-                    if (!uploadQueue.Contains(offlineFilePathInsideMyS3))
-                    {
-                        uploadQueue.Add(offlineFilePathInsideMyS3);
+            lock (uploadQueue) if (uploadQueue.Contains(offlineFilePathInsideMyS3)) return;
+            lock (uploadedList) if (uploadedList.Contains(s3FilePath)) return;
+            lock (downloadQueue) if (downloadQueue.Contains(s3FilePath)) return;
+            lock (downloadedList) if (downloadedList.Contains(s3FilePath)) return;
+            lock (removeQueue) if (removeQueue.Contains(offlineFilePathInsideMyS3)) return;
+            lock (renameQueue) if (renameQueue.ContainsKey(offlineFilePathInsideMyS3)) return;
+            lock (renamedList) if (renamedList.Contains(offlineFilePathInsideMyS3)) return;
+            if (!File.Exists(offlineFilePath)) return; // user can have removed file
 
-                        if (verboseLogFunc != null)
-                            verboseLogFunc("Local file \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
-                                "\" added to upload queue [" + uploadQueue.Count + "]");
-                    }
-            }));
+            // Add upload
+            lock (uploadQueue)
+                if (!uploadQueue.Contains(offlineFilePathInsideMyS3))
+                {
+                    uploadQueue.Add(offlineFilePathInsideMyS3);
+
+                    if (verboseLogFunc != null)
+                        verboseLogFunc("Local file \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
+                            "\" added to upload queue [" + uploadQueue.Count + "]");
+                }
         }
 
         public void Rename(string oldOfflineFilePath, string newOfflineFilePath)
@@ -345,34 +346,31 @@ namespace MyS3
 
             // ---
 
-            ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) => {
+            // Cancel old rename
+            lock (renameQueue)
+                if (renameQueue.ContainsKey(oldOfflineFilePathInsideMyS3))
+                    renameQueue.Remove(oldOfflineFilePathInsideMyS3);
 
-                // Cancel old rename
-                lock (renameQueue)
-                    if (renameQueue.ContainsKey(oldOfflineFilePathInsideMyS3))
-                        renameQueue.Remove(oldOfflineFilePathInsideMyS3);
+            // Cancel upload
+            lock (uploadQueue)
+                if (uploadQueue.Contains(oldOfflineFilePathInsideMyS3))
+                    uploadQueue.Remove(oldOfflineFilePathInsideMyS3);
 
-                // Cancel upload
-                lock (uploadQueue)
-                    if (uploadQueue.Contains(oldOfflineFilePathInsideMyS3))
-                        uploadQueue.Remove(oldOfflineFilePathInsideMyS3);
-
-                // Do rename
-                lock (renameQueue)
+            // Do rename
+            lock (renameQueue)
+            {
+                if (!renameQueue.ContainsKey(newOfflineFilePathInsideMyS3))
                 {
-                    if (!renameQueue.ContainsKey(newOfflineFilePathInsideMyS3))
-                    {
-                        renameQueue.Add(newOfflineFilePathInsideMyS3, oldOfflineFilePathInsideMyS3);
+                    renameQueue.Add(newOfflineFilePathInsideMyS3, oldOfflineFilePathInsideMyS3);
 
-                        if (verboseLogFunc != null)
-                            verboseLogFunc("S3 object for local file \"" + oldOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
-                                "\" ==> \"" + newOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
-                                    "\" added to rename queue [" + renameQueue.Count + "]");
-                    }
+                    if (verboseLogFunc != null)
+                        verboseLogFunc("S3 object for local file \"" + oldOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
+                            "\" ==> \"" + newOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
+                                "\" added to rename queue [" + renameQueue.Count + "]");
                 }
-            }));
+            }
         }
-        
+
         public void Remove(string offlinePath, bool directoryInsteadOfFile)
         {
             // Get paths
@@ -384,6 +382,7 @@ namespace MyS3
             // Handle deleted directory
             if (directoryInsteadOfFile)
             {
+                lock (myS3Files)
                 foreach (KeyValuePair<string, string> kvp in myS3Files)
                 {
                     string offlinePathInsideMyS3FromOfflineFileList = kvp.Key;
@@ -395,32 +394,29 @@ namespace MyS3
 
             // ---
 
-            ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) => {
+            lock (myS3Files)
+                if (!myS3Files.ContainsKey(offlinePathInsideMyS3)) return; // removed from list elsewhere so skip
 
-                lock (myS3Files)
-                    if (!myS3Files.ContainsKey(offlinePathInsideMyS3)) return; // removed from list elsewhere so skip
+            // Cancel rename
+            lock (renameQueue)
+                if (renameQueue.Values.Contains(offlinePathInsideMyS3))
+                    renameQueue.Remove(offlinePathInsideMyS3);
 
-                // Cancel rename
-                lock (renameQueue)
-                    if (renameQueue.Values.Contains(offlinePathInsideMyS3))
-                        renameQueue.Remove(offlinePathInsideMyS3);
+            // Cancel upload
+            lock (uploadQueue)
+                if (uploadQueue.Contains(offlinePathInsideMyS3))
+                    uploadQueue.Remove(offlinePathInsideMyS3);
 
-                // Cancel upload
-                lock (uploadQueue)
-                    if (uploadQueue.Contains(offlinePathInsideMyS3))
-                        uploadQueue.Remove(offlinePathInsideMyS3);
+            // Do removal
+            lock (removeQueue)
+                if (!removeQueue.Contains(offlinePathInsideMyS3))
+                {
+                    removeQueue.Add(offlinePathInsideMyS3);
 
-                // Do removal
-                lock (removeQueue)
-                    if (!removeQueue.Contains(offlinePathInsideMyS3))
-                    {
-                        removeQueue.Add(offlinePathInsideMyS3);
-
-                        if (verboseLogFunc != null)
-                            verboseLogFunc("S3 object for local file \"" + offlinePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
-                                "\" added to removal queue [" + removeQueue.Count + "]");
-                    }
-            }));
+                    if (verboseLogFunc != null)
+                        verboseLogFunc("S3 object for local file \"" + offlinePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
+                            "\" added to removal queue [" + removeQueue.Count + "]");
+                }
         }
 
         // ---
@@ -466,11 +462,25 @@ namespace MyS3
                 while (!stop)
                 {
                     // Compare after activity finishes
-                    if (uploadQueue.Count != 0 || downloadQueue.Count != 0 ||
-                        renameQueue.Count != 0 || removeQueue.Count != 0) timeLastActivity = DateTime.Now;
-                    if (uploadQueue.Count == 0 && downloadQueue.Count == 0 &&
-                        renameQueue.Count == 0 && removeQueue.Count == 0 &&
-                        timeLastActivity.AddSeconds(3) < DateTime.Now) // Give S3 a little time to finish last activity
+                    bool activityDone = false;
+                    lock (uploadQueue)
+                    {
+                        lock (downloadQueue)
+                        {
+                            lock (renameQueue)
+                            {
+                                lock (removeQueue)
+                                {
+                                    if (uploadQueue.Count != 0 || downloadQueue.Count != 0 ||
+                                        renameQueue.Count != 0 || removeQueue.Count != 0) timeLastActivity = DateTime.Now;
+
+                                    activityDone = (uploadQueue.Count == 0 && downloadQueue.Count == 0 &&
+                                        renameQueue.Count == 0 && removeQueue.Count == 0);
+                                }
+                            }
+                        }
+                    }
+                    if (activityDone && timeLastActivity.AddSeconds(3) < DateTime.Now) // Give S3 a little time to finish last activity
                     {
                         // Run S3 and MyS3 comparison very often if shared bucket
                         if (sharedBucketWithMoreComparisons &&
@@ -482,8 +492,10 @@ namespace MyS3
                         {
                             newS3AndMyS3ComparisonNeeded = false;
 
-                            // First index every MyS3 file (MyS3 path ==> S3 hashed key)
-                            if (myS3Files.Count == 0)
+                            // Index every MyS3 file (MyS3 path ==> S3 hashed key)
+                            lock (myS3Files)
+                            {
+                                myS3Files.Clear();
                                 foreach (string offlineFilePath in Directory.GetFiles(myS3Path, "*", SearchOption.AllDirectories))
                                 {
                                     // Skip log and work folders
@@ -500,10 +512,10 @@ namespace MyS3
                                         HashWrapper.CreateSHA2Hash(
                                             Encoding.UTF8.GetBytes(offlineFilePathInsideMyS3.Replace("/", @"\")))).Replace(@"\", "").Replace("/", ""); // mys3 file path ==> hash as s3 key
 
-                                    // Local file name ==> hashed S3 key
-                                    if (!myS3Files.ContainsKey(offlineFilePathInsideMyS3))
-                                        myS3Files.Add(offlineFilePathInsideMyS3, s3FilePath);
+                                    // Add local file name ==> hashed S3 key
+                                    myS3Files.Add(offlineFilePathInsideMyS3, s3FilePath);
                                 }
+                            }
 
                             if (verboseLogFunc != null)
                                 verboseLogFunc("Comparing S3 objects and MyS3 folder contents [" + NumberOfFiles + " " + (NumberOfFiles == 1 ? "file" : "files") +
@@ -513,22 +525,21 @@ namespace MyS3
 
                             // Remove files locally when already removed in S3 from elsewhere
                             Dictionary<string, DateTime> removedFiles = s3.GetCompleteRemovedObjectList();
-                            foreach (string offlineFilePath in Directory.GetFiles(myS3Path, "*", SearchOption.AllDirectories))
+                            lock (myS3Files)
+                            foreach (KeyValuePair<string, string> kvp in myS3Files)
                             {
                                 // Get paths
-                                string offlineFilePathInsideMyS3 = offlineFilePath.Replace(myS3Path, "");
-                                string s3FilePath = Convert.ToBase64String(
-                                    HashWrapper.CreateSHA2Hash(
-                                        Encoding.UTF8.GetBytes(offlineFilePathInsideMyS3.Replace("/", @"\")))).Replace(@"\", "").Replace("/", ""); // mys3 file path ==> hash as s3 key
+                                string offlineFilePathInsideMyS3 = kvp.Key;
+                                string offlineFilePath = myS3Path + offlineFilePathInsideMyS3;
+                                string s3FilePath = kvp.Value;
 
                                 // Remove local file if older and not currently uploading because it's new
+                                lock (uploadQueue)
                                 if (removedFiles.ContainsKey(s3FilePath) && removedFiles[s3FilePath] > File.GetLastWriteTime(offlineFilePath) &&
-                                    !uploadQueue.Contains(offlineFilePathInsideMyS3))
+                                    !uploadQueue.Contains(offlineFilePathInsideMyS3) && !Tools.IsFileLocked(offlineFilePath))
                                 {
                                     // Remove file
-                                    lock (myS3Files)
-                                        if (myS3Files.ContainsKey(offlineFilePathInsideMyS3))
-                                            myS3Files.Remove(offlineFilePathInsideMyS3);
+                                    myS3Files.Remove(offlineFilePathInsideMyS3);
                                     File.Delete(offlineFilePath);
                                     lock (removeQueue)
                                         if (!removeQueue.Contains(offlineFilePathInsideMyS3))
@@ -565,6 +576,7 @@ namespace MyS3
 
                                 // 2. Compare and find needed uploads
                                 if (!UploadsPaused)
+                                    lock(myS3Files)
                                     foreach (KeyValuePair<string, string> kvp in myS3Files)
                                     {
                                         // Get paths
@@ -734,7 +746,9 @@ namespace MyS3
                 while (!stop)
                 {
                     int uploadCounter = 1;
-                    while (uploadQueue.Count > 0 && !pauseUploads)
+                    bool hasUploads = false;
+                    lock (uploadQueue) hasUploads = uploadQueue.Count > 0;
+                    while (hasUploads && !pauseUploads)
                     {
                         // Get paths
                         string offlineFilePathInsideMyS3;
@@ -753,6 +767,8 @@ namespace MyS3
                             lock (uploadQueue)
                                 if (uploadQueue.Contains(offlineFilePathInsideMyS3))
                                     uploadQueue.Remove(offlineFilePathInsideMyS3);
+
+                            lock (uploadQueue) hasUploads = uploadQueue.Count > 0;
 
                             continue;
                         }
@@ -805,6 +821,7 @@ namespace MyS3
                             uploadSpeedCalc.Start(fileData.Length);
 
                             if (verboseLogFunc != null)
+                                lock(uploadQueue)
                                 verboseLogFunc("Local file \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" starts uploading [" +
                                         uploadCounter + "/" + (uploadCounter + uploadQueue.Count - 1) + "][" + Tools.GetFileSizeAsText(encryptedFilePathTemp) + "]");
 
@@ -877,7 +894,7 @@ namespace MyS3
 
                                 uploadCounter++;
 
-                                // Add to block queue - in case of slow file activity handling
+                                // Add to special blocked queue - in case of slow file activity handling
                                 lock (uploadedList)
                                     uploadedList.Add(s3FilePath);
                                 ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
@@ -890,11 +907,6 @@ namespace MyS3
                                         uploadedList.Remove(uploadedS3FilePath);
                                 }));
                             }
-
-                            // Remove from queue = only one attempt
-                            lock (uploadQueue)
-                                if (uploadQueue.Contains(offlineFilePathInsideMyS3))
-                                    uploadQueue.Remove(offlineFilePathInsideMyS3);
                         }
                         catch (Exception ex)
                         {
@@ -906,7 +918,14 @@ namespace MyS3
                         finally
                         {
                             if (File.Exists(encryptedFilePathTemp)) File.Delete(encryptedFilePathTemp);
+
+                            // Remove from queue = only one attempt
+                            lock (uploadQueue)
+                                if (uploadQueue.Contains(offlineFilePathInsideMyS3))
+                                    uploadQueue.Remove(offlineFilePathInsideMyS3);
                         }
+
+                        lock (uploadQueue) hasUploads = uploadQueue.Count > 0;
                     }
 
                     Thread.Sleep(25);
@@ -928,7 +947,9 @@ namespace MyS3
                 while (!stop)
                 {
                     int downloadCounter = 1;
-                    while (downloadQueue.Count > 0 && !pauseDownloads)
+                    bool hasDownloads = false;
+                    lock (downloadQueue) hasDownloads = downloadQueue.Count > 0;
+                    while (hasDownloads && !pauseDownloads)
                     {
                         // Get paths
                         string s3FilePath;
@@ -970,8 +991,10 @@ namespace MyS3
                             DownloadSize = long.Parse(metadata["x-amz-meta-decryptedsize"]);
                             downloadSpeedCalc.Start(DownloadSize);
                             lock (namedDownloadQueue) namedDownloadQueue.Add(offlineFilePathInsideMyS3);
+
                             if (verboseLogFunc != null)
-                                verboseLogFunc("S3 object for \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
+                                lock (downloadQueue)
+                                    verboseLogFunc("S3 object for \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
                                         "\" starts downloading [" + downloadCounter + "/" + (downloadCounter + downloadQueue.Count - 1) +
                                             "][" + Tools.GetByteSizeAsText(metadataResult.Headers.ContentLength) + "]");
 
@@ -1078,6 +1101,8 @@ namespace MyS3
                                 }
                             }
                         }
+
+                        lock (downloadQueue) hasDownloads = downloadQueue.Count > 0;
                     }
 
                     Thread.Sleep(25);
@@ -1092,10 +1117,13 @@ namespace MyS3
                 while (!stop)
                 {
                     int renameCounter = 1;
-                    while (renameQueue.Count > 0)
+                    bool mustRename = false;
+                    lock (renameQueue) mustRename = renameQueue.Count > 0;
+                    while (mustRename)
                     {
                         // Get paths
-                        KeyValuePair<string, string> kvp = renameQueue.First();
+                        KeyValuePair<string, string> kvp;
+                        lock (renameQueue) kvp = renameQueue.First();
                         string newOfflineFilePathInsideMyS3 = kvp.Key;
                         string newOfflineFilePath = myS3Path + newOfflineFilePathInsideMyS3;
                         string newS3FilePath = Convert.ToBase64String(
@@ -1163,8 +1191,9 @@ namespace MyS3
                                     }
 
                                     if (verboseLogFunc != null)
-                                        verboseLogFunc("S3 object for local file \"" + newOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" renamed [" +
-                                                renameCounter + "/" + (renameCounter + renameQueue.Count - 1) + "]");
+                                        lock (renameQueue)
+                                            verboseLogFunc("S3 object for local file \"" + newOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" renamed [" +
+                                                    renameCounter + "/" + (renameCounter + renameQueue.Count - 1) + "]");
 
                                     renameCounter++;
 
@@ -1186,13 +1215,15 @@ namespace MyS3
                                     s3.RemoveAsync(newS3FilePath, null).Wait(); // Clean up because local file removed
                                 }
                             }
-
-                            // Remove from queue = only one attempt
-                            lock (renameQueue)
-                                if (renameQueue.ContainsKey(newOfflineFilePathInsideMyS3))
-                                    renameQueue.Remove(newOfflineFilePathInsideMyS3);
                         }
                         catch (Exception) {} // If file not found in S3
+
+                        // Remove from queue = only one attempt
+                        lock (renameQueue)
+                            if (renameQueue.ContainsKey(newOfflineFilePathInsideMyS3))
+                                renameQueue.Remove(newOfflineFilePathInsideMyS3);
+
+                        lock (renameQueue) mustRename = renameQueue.Count > 0;
                     }
 
                     Thread.Sleep(25);
@@ -1207,10 +1238,13 @@ namespace MyS3
                 while (!stop)
                 {
                     int removeCounter = 1;
-                    while (removeQueue.Count > 0)
+                    bool mustRemove = false;
+                    lock (removeQueue) mustRemove = removeQueue.Count > 0;
+                    while (mustRemove)
                     {
                         // Get paths
-                        string offlineFilePathInsideMyS3 = removeQueue[0];
+                        string offlineFilePathInsideMyS3 = null;
+                        lock(removeQueue) offlineFilePathInsideMyS3 = removeQueue[0];
                         string offlineFilePath = myS3Path + offlineFilePathInsideMyS3;
                         string s3FilePath = Convert.ToBase64String(
                             HashWrapper.CreateSHA2Hash(
@@ -1232,6 +1266,7 @@ namespace MyS3
                                     myS3Files.Remove(offlineFilePathInsideMyS3);
 
                             if (verboseLogFunc != null)
+                                lock (removeQueue)
                                 verboseLogFunc("S3 object for local file \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" removed [" +
                                         removeCounter + "/" + (removeCounter + removeQueue.Count - 1) + "]");
 
@@ -1248,8 +1283,12 @@ namespace MyS3
 
                         // Remove from queue = only one attempt
                         lock (removeQueue)
+                        {
                             if (removeQueue.Contains(offlineFilePathInsideMyS3))
                                 removeQueue.Remove(offlineFilePathInsideMyS3);
+
+                            mustRemove = removeQueue.Count > 0;
+                        }
                     }
 
                     Thread.Sleep(25);
@@ -1299,17 +1338,23 @@ namespace MyS3
                             if (newestVersion == null || version.LastModified > newestVersion.LastModified)
                                 newestVersion = version;
 
-                        restoreDownloadQueue.Add(kvp.Key, new List<string>() { newestVersion.VersionId } );
+                        lock (restoreDownloadQueue)
+                            if (!restoreDownloadQueue.ContainsKey(kvp.Key))
+                                restoreDownloadQueue.Add(kvp.Key, new List<string>() { newestVersion.VersionId } );
                     }
 
-                    if (restoreDownloadQueue.Count > 0)
+                    bool hasRestores = false;
+                    lock (restoreDownloadQueue) hasRestores = restoreDownloadQueue.Count > 0;
+                    if (hasRestores)
                     {
                         if (verboseLogFunc != null)
-                            verboseLogFunc("Restoring " + restoreDownloadQueue.Count + " removed " + (restoreDownloadQueue.Count == 1 ? "file" : "files"));
+                            lock (restoreDownloadQueue)
+                                verboseLogFunc("Restoring " + restoreDownloadQueue.Count + " removed " + (restoreDownloadQueue.Count == 1 ? "file" : "files"));
 
                         // Remove delete markers
                         s3.RemoveAsync(restoreDownloadQueue).Wait();
-                        restoreDownloadQueue.Clear();
+                        lock (restoreDownloadQueue)
+                            restoreDownloadQueue.Clear();
 
                         // Trigger download from S3
                         newS3AndMyS3ComparisonNeeded = true;
@@ -1323,17 +1368,21 @@ namespace MyS3
                     {
                         if (!version.IsDeleteMarker && version.LastModified >= earliestLastModified)
                         {
-                            if (restoreDownloadQueue.ContainsKey(version.Key))
-                                restoreDownloadQueue[version.Key].Add(version.VersionId);
-                            else
-                                restoreDownloadQueue.Add(version.Key, new List<string>() { version.VersionId });
+                            lock (restoreDownloadQueue)
+                                if (restoreDownloadQueue.ContainsKey(version.Key))
+                                    restoreDownloadQueue[version.Key].Add(version.VersionId);
+                                else
+                                    restoreDownloadQueue.Add(version.Key, new List<string>() { version.VersionId });
                         }
                     }
 
-                    if (restoreDownloadQueue.Count > 0)
+                    bool hasRestores = false;
+                    lock (restoreDownloadQueue) hasRestores = restoreDownloadQueue.Count > 0;
+                    if (hasRestores)
                     {
                         if (verboseLogFunc != null)
-                            verboseLogFunc("Restoring file versions for " + restoreDownloadQueue.Count + " " + (restoreDownloadQueue.Count == 1 ? "file" : "files"));
+                            lock (restoreDownloadQueue)
+                                verboseLogFunc("Restoring file versions for " + restoreDownloadQueue.Count + " " + (restoreDownloadQueue.Count == 1 ? "file" : "files"));
 
                         // Start restore worker
                         StartRestoreWorker();
@@ -1347,11 +1396,18 @@ namespace MyS3
             ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
             {
                 int restoreCounter = 1;
-                while (restoreDownloadQueue.Count > 0 && !pauseRestore)
+                bool mustRestore = false;
+                lock (restoreDownloadQueue) mustRestore = restoreDownloadQueue.Count > 0;
+                while (mustRestore && !pauseRestore)
                 {
                     // Get paths and versions
-                    string s3FilePath = restoreDownloadQueue.First().Key;
-                    string[] versions = restoreDownloadQueue.First().Value.ToArray();
+                    string s3FilePath = null;
+                    string[] versions = null;
+                    lock (restoreDownloadQueue)
+                    {
+                        s3FilePath = restoreDownloadQueue.First().Key;
+                        versions = restoreDownloadQueue.First().Value.ToArray();
+                    }
                     string originalOfflineFilePathInsideMyS3 = null;
                     string offlineFilePathInsideMyS3 = null;
                     string encryptedFilePathTemp = null;
@@ -1389,9 +1445,9 @@ namespace MyS3
                             }
                             if (!Tools.RunningOnWindows()) originalOfflineFilePathInsideMyS3 = originalOfflineFilePathInsideMyS3.Replace(@"\", @"/");
                             offlineFilePathInsideMyS3 =
-                                MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH + 
+                                MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH +
                                 Path.GetDirectoryName(originalOfflineFilePathInsideMyS3) + (Tools.RunningOnWindows() ? @"\" : @"/") +
-                                Path.GetFileNameWithoutExtension(originalOfflineFilePathInsideMyS3) + "["+versionCounter+"]" +
+                                Path.GetFileNameWithoutExtension(originalOfflineFilePathInsideMyS3) + "[" + versionCounter + "]" +
                                     Path.GetExtension(originalOfflineFilePathInsideMyS3);
                             string offlineFilePath = myS3Path + offlineFilePathInsideMyS3;
                             encryptedFilePathTemp = myS3Path + RELATIVE_LOCAL_MYS3_WORK_DIRECTORY_PATH + Path.GetFileName(offlineFilePath) + "." +
@@ -1408,9 +1464,10 @@ namespace MyS3
                             restoreSpeedCalc.Start(RestoreDownloadSize);
                             lock (namedRestoreDownloadQueue) namedRestoreDownloadQueue.Add(offlineFilePathInsideMyS3);
                             if (verboseLogFunc != null)
-                                verboseLogFunc("S3 object for restoring \"" + originalOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
-                                        "\" [v."+ versionCounter+"] starts downloading [" + restoreCounter + "/" + (restoreCounter + restoreDownloadQueue.Count / 2 - 1) +
-                                            "][" + Tools.GetByteSizeAsText(metadataResult.Headers.ContentLength) + "]");
+                                lock (restoreDownloadQueue)
+                                    verboseLogFunc("S3 object for restoring \"" + originalOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
+                                            "\" [v." + versionCounter + "] starts downloading [" + restoreCounter + "/" + (restoreCounter + restoreDownloadQueue.Count / 2 - 1) +
+                                                "][" + Tools.GetByteSizeAsText(metadataResult.Headers.ContentLength) + "]");
 
                             // Start download
                             CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
@@ -1425,7 +1482,7 @@ namespace MyS3
                                 catch (Exception)
                                 {
                                     if (verboseLogFunc != null)
-                                        verboseLogFunc("S3 object download for restoring \"" + originalOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" [v."+versionCounter+"] aborted");
+                                        verboseLogFunc("S3 object download for restoring \"" + originalOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" [v." + versionCounter + "] aborted");
                                 }
                             }));
 
@@ -1460,26 +1517,32 @@ namespace MyS3
                                 File.SetLastWriteTime(offlineFilePath, metadataResult.LastModified.ToLocalTime());
 
                                 if (verboseLogFunc != null)
-                                    verboseLogFunc("Local file \"" + originalOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" [v."+versionCounter+"] restored");
+                                    verboseLogFunc("Local file \"" + originalOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" [v." + versionCounter + "] restored");
 
                                 restoreCounter++;
                             }
                         }
                         catch (CryptographicException)
                         {
-                            string problem = "S3 restore file \"" + s3FilePath.Substring(0, 10) + "****" + "\" [" +
-                                restoreCounter + "/" + (restoreCounter + restoreDownloadQueue.Count - 1) + "]" + " failed to be decrypted. Wrong encryption/decryption password?";
+                            lock (restoreDownloadQueue)
+                            {
+                                string problem = "S3 restore file \"" + s3FilePath.Substring(0, 10) + "****" + "\" [" +
+                                    restoreCounter + "/" + (restoreCounter + restoreDownloadQueue.Count - 1) + "]" + " failed to be decrypted. Wrong encryption/decryption password?";
 
-                            if (verboseLogFunc != null) verboseLogFunc(problem);
-                            errorLogFunc(myS3Path + RELATIVE_LOCAL_MYS3_LOG_DIRECTORY_PATH + "Decryption.log", problem);
+                                if (verboseLogFunc != null) verboseLogFunc(problem);
+                                errorLogFunc(myS3Path + RELATIVE_LOCAL_MYS3_LOG_DIRECTORY_PATH + "Decryption.log", problem);
+                            }
                         }
                         catch (Exception ex) // Happens when trying to download deleted files or it's metadata
                         {
-                            string problem = "S3 restore file \"" + s3FilePath.Substring(0, 10) + "****" + "\" [" +
+                            lock (restoreDownloadQueue)
+                            {
+                                string problem = "S3 restore file \"" + s3FilePath.Substring(0, 10) + "****" + "\" [" +
                                 restoreCounter + "/" + (restoreCounter + restoreDownloadQueue.Count - 1) + "]" + " not downloaded: " + ex.Message;
 
-                            if (verboseLogFunc != null) verboseLogFunc(problem);
-                            errorLogFunc(myS3Path + RELATIVE_LOCAL_MYS3_LOG_DIRECTORY_PATH + "Restore.log", problem);
+                                if (verboseLogFunc != null) verboseLogFunc(problem);
+                                errorLogFunc(myS3Path + RELATIVE_LOCAL_MYS3_LOG_DIRECTORY_PATH + "Restore.log", problem);
+                            }
                         }
                         finally
                         {
