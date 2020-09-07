@@ -1,0 +1,3 @@
+[submodule "EncryptionAndHashingLibrary"]
+	path = EncryptionAndHashingLibrary
+	url = https://github.com/flaskevann/EncryptionAndHashingLibrary
