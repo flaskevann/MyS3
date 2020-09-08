@@ -21,10 +21,11 @@ namespace MyS3
             string text;
 
             double size = s;
-            if (size < 1024) text = ReplaceCommaAndAddTrailingZero(Math.Round(size, 2)+"") + " B"; // <1 KB
-            else if (size < 1024 * 1024) text = ReplaceCommaAndAddTrailingZero(Math.Round(size / 1024, 2)+"") + " KB"; // <1 MB
-            else if (size < 1024 * 1024 * 1024) text = ReplaceCommaAndAddTrailingZero(Math.Round(size / (1024 * 1024), 2)+"") + " MB"; // <1 GB
-            else text = ReplaceCommaAndAddTrailingZero(Math.Round(size / (1024 * 1024 * 1024), 2)+"") + " MB"; // <1 TB
+            if (size < 1024) text = ReplaceCommaAndAddTrailingZero(Math.Round(size, 2) + "") + " B"; // <1 KB
+            else if (size < 1024.0 * 1024) text = ReplaceCommaAndAddTrailingZero(Math.Round(size / 1024, 2) + "") + " KB"; // <1 MB
+            else if (size < 1024.0 * 1024 * 1024) text = ReplaceCommaAndAddTrailingZero(Math.Round(size / (1024.0 * 1024), 2) + "") + " MB"; // <1 GB
+            else if (size < 1024.0 * 1024 * 1024 * 1024) text = ReplaceCommaAndAddTrailingZero(Math.Round(size / (1024.0 * 1024 * 1024), 2) + "") + " GB"; // <1 TB
+            else text = ReplaceCommaAndAddTrailingZero(Math.Round(size / (1024.0 * 1024 * 1024 * 1024), 2) + "") + " TB";
 
             return text;
         }
