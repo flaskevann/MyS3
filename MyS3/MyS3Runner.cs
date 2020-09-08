@@ -966,12 +966,16 @@ namespace MyS3
                 while (!stop)
                 {
                     int uploadCounter = 1;
-                    lock (uploadedList) uploadedList.Clear();
 
                     bool hasUploads = false;
                     lock (uploadQueue) hasUploads = uploadQueue.Count > 0;
                     while (hasUploads && !pauseUploads)
                     {
+                        // Keep list of uploaded files long after = block re-uploads that sometimes happen
+                        lock (uploadedList)
+                            if (uploadedList.Count > 100)
+                                uploadedList.Clear();
+
                         // Get paths
                         string offlineFilePathInsideMyS3;
                         lock (uploadQueue)
@@ -1443,10 +1447,6 @@ namespace MyS3
                                 Encoding.UTF8.GetBytes(offlineFilePathInsideMyS3.Replace("/", @"\")))).Replace(@"\", "").Replace("/", ""); // mys3 file path ==> hash as s3 key
 
                         // Remove file from S3
-                        bool regularFileRemoval = true;
-                        lock (myS3Files)
-                            regularFileRemoval = myS3Files.ContainsKey(offlineFilePathInsideMyS3);
-                        if (regularFileRemoval)
                         try
                         {
                             // Remove
@@ -1467,8 +1467,8 @@ namespace MyS3
 
                                 mustRemove = removeQueue.Count > 0;
                             }
-                            }
-                            catch (Exception ex)
+                        }
+                        catch (Exception ex)
                         {
                             string problem = "Problem removing S3 object \"" + s3FilePath.Substring(0, 10) + "****" + "\" for local file \"" +
                                 offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" - \"" + ex.Message + "\"";
