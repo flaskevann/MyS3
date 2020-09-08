@@ -15,6 +15,8 @@ namespace MyS3.GUI
     {
         private static readonly int DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH = 30;
 
+        private static readonly int MAX_LIST_LENGTH = 5;
+
         private readonly int controlNameCounter;
 
         private IEnumerable<Control> GetAllControls(Control control)
@@ -31,19 +33,40 @@ namespace MyS3.GUI
 
             this.controlNameCounter = controlNameCounter;
             this.Name += controlNameCounter;
+            foreach (Control control in GetAllControls(this))
+                control.Name += controlNameCounter;
+        }
 
+        // ---
+
+        public MyS3Runner MyS3
+        {
+            set
+            {
+                myS3 = value;
+                myS3.VerboseLogFunc = (string content) => UpdateConsoleControl(content);
+            }
+        }
+        private MyS3Runner myS3;
+
+        // ---
+
+        public new void Show()
+        {
             ReadyControls();
+            StartUpdatingControls();
+
+            base.Show();
         }
 
         private void ReadyControls()
         {
-            // Ready controls
             foreach (Control control in GetAllControls(this))
             {
-                control.Name += controlNameCounter; // make control names unique
-
                 // Tabs
-                if (control.Name.StartsWith("overviewTabs"))
+                if (control.Name.StartsWith("mys3GroupBox"))
+                    control.Text = "Monitoring '" + myS3.MyS3Path;
+                else if (control.Name.StartsWith("overviewTabs"))
                     ((TabControl)control).SelectedIndex = 0; // Selects Files tab
                 else if (control.Name.StartsWith("filesTab"))
                     control.Text = "Files";
@@ -61,41 +84,15 @@ namespace MyS3.GUI
                     ((ListBox)control).Items.Clear();
                 else if (control.Name.StartsWith("restoreDownloadsList") && !control.Name.StartsWith("restoreDownloadsListTitleLabel"))
                     ((ListBox)control).Items.Clear();
-
-                // Console
-                else if (control.Name.StartsWith("consoleBox"))
-                    control.Text = "";
             }
-        }
 
-        // ---
+            Button pauseDownloadsButton = Controls.Find("pauseDownloadsButton" + controlNameCounter, true).FirstOrDefault() as Button;
+            pauseDownloadsButton.Text = "Pause downloads";
+            pauseDownloadsButton.Click += (sender, args) => myS3.PauseDownloads(!myS3.DownloadsPaused);
 
-        public MyS3Runner MyS3
-        {
-            set
-            {
-                myS3 = value;
-
-                myS3.VerboseLogFunc = (string content) => UpdateConsoleControl(content);
-
-                Button pauseDownloadsButton = Controls.Find("pauseDownloadsButton" + controlNameCounter, true).FirstOrDefault() as Button;
-                pauseDownloadsButton.Text = "Pause downloads";
-                pauseDownloadsButton.Click += (sender, args) => myS3.PauseDownloads(!myS3.DownloadsPaused);
-
-                Button pauseUploadsButton = Controls.Find("pauseUploadsButton" + controlNameCounter, true).FirstOrDefault() as Button;
-                pauseUploadsButton.Text = "Pause uploads";
-                pauseUploadsButton.Click += (sender, args) => myS3.PauseUploads(!myS3.UploadsPaused);
-            }
-        }
-        private MyS3Runner myS3;
-
-        // ---
-
-        public new void Show()
-        {
-            StartUpdatingControls();
-
-            base.Show();
+            Button pauseUploadsButton = Controls.Find("pauseUploadsButton" + controlNameCounter, true).FirstOrDefault() as Button;
+            pauseUploadsButton.Text = "Pause uploads";
+            pauseUploadsButton.Click += (sender, args) => myS3.PauseUploads(!myS3.UploadsPaused);
         }
 
         public void StartUpdatingControls()
@@ -145,7 +142,7 @@ namespace MyS3.GUI
 
             // ---
 
-            GroupBox groupBox = Controls.Find("groupBox" + controlNameCounter, true).FirstOrDefault() as GroupBox;
+            GroupBox groupBox = Controls.Find("mys3GroupBox" + controlNameCounter, true).FirstOrDefault() as GroupBox;
 
             if (groupBox == null) return;
 
@@ -721,20 +718,26 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("downloadsList"))
                     {
                         ListBox listBox = (ListBox)control;
-                        if (listBox.Items.Count != downloadQueue.Count)
+                        if (listBox.Items.Count == 0)
                         {
-                            for (int s = 0; s < listBox.Items.Count; s++)
+                            for (int s = 0; s < downloadQueue.Count && s < MAX_LIST_LENGTH; s++)
                             {
-                                string path = listBox.Items[s].ToString();
-                                if (!downloadQueue.Contains(path))
-                                {
-                                    listBox.Items.Remove(path);
-                                    s--;
-                                }
+                                string path = downloadQueue[s];
+                                listBox.Items.Add(path);
                             }
-                            foreach (string path in downloadQueue)
-                                if (!listBox.Items.Contains(path))
-                                    listBox.Items.Add(path);
+                        }
+                        else
+                        {
+                            if (downloadQueue.Count == 0)
+                            {
+                                listBox.Items.Clear();
+                            }
+                            else
+                            {
+                                if (((string)listBox.Items[0]) != downloadQueue[0] ||
+                                     (listBox.Items.Count < MAX_LIST_LENGTH && downloadQueue.Count > listBox.Items.Count))
+                                    listBox.Items.Clear();
+                            }
                         }
                         listBox.Visible = downloadQueue.Count > 0;
                     }
@@ -745,21 +748,26 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("uploadsList"))
                     {
                         ListBox listBox = (ListBox)control;
-                        if (listBox.Items.Count != uploadQueue.Count)
+                        if (listBox.Items.Count == 0)
                         {
-                            for (int s = 0; s < listBox.Items.Count; s++)
+                            for (int s = 0; s < uploadQueue.Count && s < MAX_LIST_LENGTH; s++)
                             {
-                                string path = listBox.Items[s].ToString();
-                                if (!uploadQueue.Contains(path))
-                                {
-                                    listBox.Items.Remove(path);
-                                    s--;
-                                }
+                                string path = uploadQueue[s];
+                                listBox.Items.Add(path);
                             }
-
-                            foreach (string path in uploadQueue)
-                                if (!listBox.Items.Contains(path))
-                                    listBox.Items.Add(path);
+                        }
+                        else
+                        {
+                            if (uploadQueue.Count == 0)
+                            {
+                                listBox.Items.Clear();
+                            }
+                            else
+                            {
+                                if (((string)listBox.Items[0]) != uploadQueue[0] ||
+                                     (listBox.Items.Count < MAX_LIST_LENGTH && uploadQueue.Count > listBox.Items.Count))
+                                    listBox.Items.Clear();
+                            }
                         }
                         listBox.Visible = uploadQueue.Count > 0;
                     }
@@ -770,20 +778,26 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("restoreDownloadsList"))
                     {
                         ListBox listBox = (ListBox)control;
-                        if (listBox.Items.Count != restoreDownloadQueue.Count)
+                        if (listBox.Items.Count == 0)
                         {
-                            for (int s = 0; s < listBox.Items.Count; s++)
+                            for (int s = 0; s < restoreDownloadQueue.Count && s < MAX_LIST_LENGTH; s++)
                             {
-                                string path = listBox.Items[s].ToString();
-                                if (!restoreDownloadQueue.Contains(path))
-                                {
-                                    listBox.Items.Remove(path);
-                                    s--;
-                                }
+                                string path = restoreDownloadQueue[s];
+                                listBox.Items.Add(path);
                             }
-                            foreach (string path in restoreDownloadQueue)
-                                if (!listBox.Items.Contains(path))
-                                    listBox.Items.Add(path);
+                        }
+                        else
+                        {
+                            if (restoreDownloadQueue.Count == 0)
+                            {
+                                listBox.Items.Clear();
+                            }
+                            else
+                            {
+                                if (((string)listBox.Items[0]) != restoreDownloadQueue[0] ||
+                                     (listBox.Items.Count < MAX_LIST_LENGTH && restoreDownloadQueue.Count > listBox.Items.Count))
+                                    listBox.Items.Clear();
+                            }
                         }
                         listBox.Visible = restoreDownloadQueue.Count > 0;
                     }
@@ -799,18 +813,6 @@ namespace MyS3.GUI
                     }
 
                     // Status
-                    else if (control.Name.StartsWith("downloadStatusLabel"))
-                    {
-                        control.Visible = downloadQueue.Count == 0;
-                    }
-                    else if (control.Name.StartsWith("uploadStatusLabel"))
-                    {
-                        control.Visible = uploadQueue.Count == 0;
-                    }
-                    else if (control.Name.StartsWith("restoreDownloadStatusLabel"))
-                    {
-                        control.Visible = restoreDownloadQueue.Count == 0;
-                    }
                     else if (control.Name.StartsWith("pauseLabel"))
                     {
                         if (myS3.DownloadsPaused && myS3.UploadsPaused)
@@ -835,6 +837,11 @@ namespace MyS3.GUI
                             control.Text = "Syncing";
                             control.ForeColor = Color.DarkOrange;
                         }
+                        else if (myS3.IsComparingMyS3AndS3)
+                        {
+                            control.Text = "Comparing files";
+                            control.ForeColor = Color.DarkOrange;
+                        }
                         else
                         {
                             control.Text = "Inactive";
@@ -850,10 +857,6 @@ namespace MyS3.GUI
 
         private void UpdateConsoleControl(string content)
         {
-            lock (myS3) if (myS3.Stopping) return;
-
-            // ---
-
             TextBox consoleBox = Controls.Find("consoleBox" + controlNameCounter, true).FirstOrDefault() as TextBox;
 
             if (consoleBox == null || consoleBox.IsDisposed) return;

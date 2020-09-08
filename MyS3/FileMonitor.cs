@@ -15,13 +15,13 @@ namespace MyS3
         private readonly string[] ignoredDirectoriesNames;
         private readonly string[] ignoredFileExtensions;
 
-        private Action<string> uploadFunc;
+        private Action<string> changeFunc;
         private Action<string, string> renameFunc;
         private Action<string, bool> removeFunc;
 
         public FileMonitor(string rootPath,
             string[] ignoredDirectoriesNames, string[] ignoredFileExtensions,
-            Action<string> uploadFunc,
+            Action<string> changeFunc,
             Action<string, string> renameFunc,
             Action<string, bool> removeFunc)
         {
@@ -30,7 +30,7 @@ namespace MyS3
             this.ignoredDirectoriesNames = ignoredDirectoriesNames;
             this.ignoredFileExtensions = ignoredFileExtensions;
 
-            this.uploadFunc = uploadFunc;
+            this.changeFunc = changeFunc;
             this.renameFunc = renameFunc;
             this.removeFunc = removeFunc;
         }
@@ -95,7 +95,7 @@ namespace MyS3
                 if (Path.GetExtension(offlinePath) == fileExtension) return;
 
             // Execute
-            uploadFunc(offlinePath);
+            changeFunc(offlinePath);
         }
 
         private void OnRename(object source, RenamedEventArgs eventArgs)

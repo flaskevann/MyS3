@@ -223,7 +223,7 @@ namespace MyS3.GUI
                 {
                     EnableMyS3Box();
 
-                    (new InfoBox("Test Results", "Every test succeeded, please proceed!")).ShowDialog();
+                    (new InfoBox("Test Results", "Every test succeeded so please proceed!")).ShowDialog();
                 }
                 else
                 {

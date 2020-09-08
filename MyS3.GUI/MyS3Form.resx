@@ -62,7 +62,7 @@
         AAEAAAD/////AQAAAAAAAAAMAgAAAFdTeXN0ZW0uV2luZG93cy5Gb3JtcywgVmVyc2lvbj00LjAuMC4w
         LCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAACZTeXN0
         ZW0uV2luZG93cy5Gb3Jtcy5JbWFnZUxpc3RTdHJlYW1lcgEAAAAERGF0YQcCAgAAAAkDAAAADwMAAADi
-        CAAAAk1TRnQBSQFMAgEBAwEAARgBAgEYAQIBEAEAARABAAT/AQkBAAj/AUIBTQE2AQQGAAE2AQQCAAEo
+        CAAAAk1TRnQBSQFMAgEBAwEAATABAgEwAQIBEAEAARABAAT/AQkBAAj/AUIBTQE2AQQGAAE2AQQCAAEo
         AwABQAMAARADAAEBAQABCAYAAQQYAAGAAgABgAMAAoABAAGAAwABgAEAAYABAAKAAgADwAEAAcAB3AHA
         AQAB8AHKAaYBAAEzBQABMwEAATMBAAEzAQACMwIAAxYBAAMcAQADIgEAAykBAANVAQADTQEAA0IBAAM5
         AQABgAF8Af8BAAJQAf8BAAGTAQAB1gEAAf8B7AHMAQABxgHWAe8BAAHWAucBAAGQAakBrQIAAf8BMwMA
@@ -101,22 +101,5 @@
         AQECAAHAAQEBwAEDAcABAQIAAcABAQHAAQMBwAEBAgABwAEBAcABAwHAAQECAAHAAQEBwAEDAcABAQIA
         AcABAQHAAQMBwAEBAgABwAH/AcABAwHAAf8CAAL/AcABBwL/AgAC/wHAAQ8C/wIAAv8BwAEfAv8CAAs=
 </value>
-  </data>
-  <data name="consoleBox.Text" xml:space="preserve">
-    <value>blah blah blah
-meh meh meh
-yada yada yada
-blah blah blah
-meh meh meh blob blob blob blob blob blob blob blob blob blob blob blob blob blob blob blob blob blob blob blob
-yada yada yada
-blah blah blah
-meh meh meh
-yada yada yada
-blah blah blah
-meh meh meh
-yada yada yada
-blah blah blah
-meh meh meh
-yada yada yada</value>
   </data>
 </root>
