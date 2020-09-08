@@ -9,9 +9,6 @@
     <Authors>Ove Bakken</Authors>
     <Copyright>MIT</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <SignAssembly>false</SignAssembly>
-    <AssemblyOriginatorKeyFile>Visual Studio Signing Key.pfx</AssemblyOriginatorKeyFile>
-    <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <ItemGroup>
