@@ -8,7 +8,6 @@ using System.Collections.Generic;
 
 using Amazon;
 using Amazon.S3;
-using Amazon.Runtime;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 
@@ -26,9 +25,12 @@ namespace MyS3
             }
         }
 
-        private static readonly long PART_SIZE = 5 * (long)Math.Pow(2, 20); // 5 MB
+        public static readonly long MIN_MULTIPART_SIZE = 5 * (long)Math.Pow(2, 20); // 5 MB
+                                                                                    // No progress report when lower
 
         public static readonly int TRANSFER_EVENT_PAUSE_MILLISECONDS = 500;
+
+        // ---
 
         private readonly string bucket;
         private readonly RegionEndpoint endpoint;
@@ -165,8 +167,10 @@ namespace MyS3
                 {
                     s3ObjectsInfo.AddRange(listResult.S3Objects);
 
-                    if (listResult.IsTruncated) marker = listResult.NextMarker;
-                    else break;
+                    if (listResult.IsTruncated)
+                        marker = listResult.NextMarker;
+                    else
+                        break;
                 }
                 else
                 {
@@ -201,10 +205,12 @@ namespace MyS3
                 ListVersionsResponse listResult = GetObjectVersionsListAsync(s3ObjectPath, marker);
                 if (listResult.HttpStatusCode == HttpStatusCode.OK)
                 {
-                    s3ObjectVersions.AddRange(listResult.Versions);
+                    s3ObjectVersions.AddRange(listResult.Versions.ToList<S3ObjectVersion>());
 
-                    if (listResult.IsTruncated) marker = listResult.NextKeyMarker;
-                    else break;
+                    if (listResult.IsTruncated)
+                        marker = listResult.NextKeyMarker;
+                    else
+                        break;
                 }
                 else
                 {
@@ -357,7 +363,7 @@ namespace MyS3
                             Key = s3ObjectPath,
                             UploadId = initResponse.UploadId,
                             PartNumber = i,
-                            PartSize = PART_SIZE,
+                            PartSize = MIN_MULTIPART_SIZE,
                             FilePosition = filePosition,
                             FilePath = localFilePath
                         };
@@ -374,7 +380,7 @@ namespace MyS3
                             };
                         }
 
-                        filePosition += PART_SIZE;
+                        filePosition += MIN_MULTIPART_SIZE;
 
                         UploadPartResponse uploadPartResponse = await client.UploadPartAsync(uploadRequest, cancelToken);
                         uploadPartResponses.Add(uploadPartResponse);

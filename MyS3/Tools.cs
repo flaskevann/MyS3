@@ -1,8 +1,9 @@
 ﻿using System;
 using System.IO;
-using System.Text;
-using System.Collections.Generic;
+using System.Net;
 using System.Runtime.InteropServices;
+
+using EncryptionAndHashingLibrary;
 
 namespace MyS3
 {
@@ -15,6 +16,8 @@ namespace MyS3
 
             return number;
         }
+
+        // ---
 
         public static string GetByteSizeAsText(long s)
         {
@@ -54,17 +57,17 @@ namespace MyS3
         public static bool IsFileLocked(string filePath)
         {
             // Check last write time
-            if (File.GetLastWriteTime(filePath).AddSeconds(1) >= DateTime.Now)
+            if (File.GetLastWriteTime(filePath).AddMilliseconds(5) >= DateTime.Now)
                 return true;
 
-            // Can file be opened = everything OK (DOES NOT WORK ON *NIX !)
+            // Can file be opened = everything OK (Not reliable on *nix !)
             FileStream stream = null;
             var file = new FileInfo(filePath);
             try
             {
                 stream = file.Open(FileMode.Open, FileAccess.ReadWrite, FileShare.None);
             }
-            catch (IOException)
+            catch (Exception)
             {
                 return true;
             }
@@ -76,6 +79,64 @@ namespace MyS3
             return false;
         }
 
+        // ---
+
+        private static string SETTINGS_DIRECTORY_PATH
+        {
+            get
+            {
+                return
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) +
+                    (RunningOnWindows() ? @"\MyS3\" : @"/MyS3/");
+            }
+        }
+
+        public static bool SettingsFileExists(string filename)
+        {
+            return File.Exists(SETTINGS_DIRECTORY_PATH + filename);
+        }
+
+        public static void WriteSettingsFile(string filename, byte[] data) // always overwrites
+        {
+            string path = SETTINGS_DIRECTORY_PATH + filename;
+
+            // Create necessary directories
+            string directories = RunningOnWindows() ?
+                path.Substring(0, path.LastIndexOf(@"\") + 1) :
+                path.Substring(0, path.LastIndexOf(@"/") + 1);
+            if (!Directory.Exists(directories)) Directory.CreateDirectory(directories);
+
+            // Encrypt and write to file
+            byte[] encryptedData = AesEncryptionWrapper.EncryptWithGCM(
+                data,
+                EncryptionAndHashingLibrary.Tools.GetPasswordAsEncryptionKey(AesEncryptionWrapper.GCM_KEY_SIZE, "MyS3")
+            );
+            File.WriteAllBytes(path, encryptedData);
+        }
+
+        public static byte[] ReadSettingsFile(string filename)
+        {
+            string path = SETTINGS_DIRECTORY_PATH + filename;
+
+            // Read from file and decrypt
+            byte[] encryptedData = File.ReadAllBytes(path);
+            byte[] data = AesEncryptionWrapper.DecryptForGCM(
+                encryptedData,
+                EncryptionAndHashingLibrary.Tools.GetPasswordAsEncryptionKey(AesEncryptionWrapper.GCM_KEY_SIZE, "MyS3")
+            );
+
+            return data;
+        }
+
+        // ---
+
+        public static bool RunningOnWindows()
+        {
+            return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        }
+
+        // ---
+
         public static void Log(string content)
         {
             Console.WriteLine(DateTime.Now.ToLocalTime() + ": " + content);
@@ -86,9 +147,21 @@ namespace MyS3
             File.AppendAllText(filePath, DateTime.Now.ToLocalTime() + ": " + content + "\n");
         }
 
-        public static bool RunningOnWindows()
+        // ---
+
+        public static bool HasInternet()
         {
-            return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            try
+            {
+                using (var client = new WebClient())
+                using (client.OpenRead("https://google.com/"))
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

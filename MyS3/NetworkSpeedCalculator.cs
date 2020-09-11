@@ -20,7 +20,11 @@ namespace MyS3
         public double Stop()
         {
             TimeSpan timeUsed = DateTime.Now - timeStarted;
-            return (numberOfBytes / timeUsed.TotalMilliseconds) * 1000;
+
+            if (timeUsed.TotalSeconds >= 1)
+                return (numberOfBytes / timeUsed.TotalMilliseconds) * 1000;
+            else
+                return -1;
         }
     }
 }

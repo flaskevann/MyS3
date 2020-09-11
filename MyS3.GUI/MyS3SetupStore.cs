@@ -12,17 +12,13 @@ namespace MyS3.GUI
 {
     public class SetupStore
     {
-        private static readonly string APP_DATA_DIRECTORY_PATH = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\" + "MyS3" + @"\";
-        private static readonly string SETUPS_FILE_PATH = APP_DATA_DIRECTORY_PATH + "setups.bin";
+        private static readonly string SETUPS_FILE_PATH = "setups.bin";
 
         public static ImmutableDictionary<string, MyS3Setup> Entries { get { return setups.ToImmutableDictionary<string, MyS3Setup>(); } }
         private static Dictionary<string, MyS3Setup> setups = new Dictionary<string, MyS3Setup>();
 
-        private static void SaveToFile()
+        private static void Save()
         {
-            // Setup
-            if (!Directory.Exists(APP_DATA_DIRECTORY_PATH)) Directory.CreateDirectory(APP_DATA_DIRECTORY_PATH);
-
             if (setups.Count > 0)
             {
                 // Serialize
@@ -34,51 +30,29 @@ namespace MyS3.GUI
                     data = ms.ToArray();
                 }
 
-                // Encrypt and write to file
-                byte[] encryptedData = AesEncryptionWrapper.EncryptWithGCM(
-                    data,
-                    EncryptionAndHashingLibrary.Tools.GetPasswordAsEncryptionKey(AesEncryptionWrapper.GCM_KEY_SIZE, "MyS3")
-                );
-                File.WriteAllBytes(SETUPS_FILE_PATH, encryptedData);
-            }
-            else
-            {
-                if (File.Exists(SETUPS_FILE_PATH))
-                    File.Delete(SETUPS_FILE_PATH);
+                Tools.WriteSettingsFile(SETUPS_FILE_PATH, data);
             }
         }
 
-        private static void LoadFromFile()
+        private static void Load()
         {
-            // Setup
-            if (!Directory.Exists(APP_DATA_DIRECTORY_PATH)) Directory.CreateDirectory(APP_DATA_DIRECTORY_PATH);
-
-            try
+            if (Tools.SettingsFileExists(SETUPS_FILE_PATH))
             {
-                if (File.Exists(SETUPS_FILE_PATH))
-                {
-                    // Read from file and decrypt
-                    byte[] encryptedData = File.ReadAllBytes(SETUPS_FILE_PATH);
-                    byte[] data = AesEncryptionWrapper.DecryptForGCM(
-                        encryptedData,
-                        EncryptionAndHashingLibrary.Tools.GetPasswordAsEncryptionKey(AesEncryptionWrapper.GCM_KEY_SIZE, "MyS3")
-                    );
+                byte[] data = Tools.ReadSettingsFile(SETUPS_FILE_PATH);
 
-                    // Deserialize
-                    Dictionary<string, MyS3Setup> dic = new Dictionary<string, MyS3Setup>();
-                    using (MemoryStream ms = new MemoryStream(data))
-                    {
-                        BinaryFormatter binFormatter = new BinaryFormatter();
-                        setups = (Dictionary<string, MyS3Setup>)binFormatter.Deserialize(ms);
-                    }
+                // Deserialize
+                Dictionary<string, MyS3Setup> dic = new Dictionary<string, MyS3Setup>();
+                using (MemoryStream ms = new MemoryStream(data))
+                {
+                    BinaryFormatter binFormatter = new BinaryFormatter();
+                    setups = (Dictionary<string, MyS3Setup>)binFormatter.Deserialize(ms);
                 }
             }
-            catch (Exception) { }
         }
 
         static SetupStore()
         {
-            LoadFromFile();
+            Load();
         }
 
         // ---
@@ -89,7 +63,7 @@ namespace MyS3.GUI
                 setups.Remove(setup.Bucket);
             setups.Add(setup.Bucket, setup);
 
-            SaveToFile();
+            Save();
         }
 
         public static void Remove(MyS3Setup setup)
@@ -98,7 +72,7 @@ namespace MyS3.GUI
             {
                 setups.Remove(setup.Bucket);
 
-                SaveToFile();
+                Save();
             }
         }
     }

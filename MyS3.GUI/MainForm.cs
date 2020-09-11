@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Collections.Generic;
@@ -10,6 +11,8 @@ namespace MyS3.GUI
         public static readonly string USER_MANUAL_URL = "https://github.com/flaskevann/MyS3/blob/master/Docs/UserManual.pdf";
 
         private List<MyS3Runner> myS3s = new List<MyS3Runner>();
+
+        // ---
 
         private long GetDownloadedBytes()
         {
@@ -29,12 +32,56 @@ namespace MyS3.GUI
 
         // ---
 
+        private void UpdateStatus(string content)
+        {
+            if (statusStrip.InvokeRequired)
+                statusStrip.Invoke(new StringParameterDelegate(UpdateStatus), content);
+            else
+                statusLabel.Text = content;
+        }
+
+        private delegate void StringParameterDelegate(string text);
+
+        // ---
+
         public MainForm()
         {
             InitializeComponent();
 
+            StartInternetChecker();
             CreateEditSetupMenuItems();
+
             UseMyS3Setups();
+        }
+
+        private void StartInternetChecker()
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
+            {
+                bool hasInternet = true;
+
+                while (!base.IsDisposed)
+                {
+                    bool hasInternetNew = Tools.HasInternet();
+
+                    if (hasInternetNew != hasInternet)
+                    {
+                        hasInternet = hasInternetNew;
+
+                        if (hasInternet)
+                        {
+                            UpdateStatus("Status: Ready");
+                            TriggerUseMyS3Setups();
+                        }
+                        else
+                        {
+                            UpdateStatus("Status: No network connection");
+                        }
+                    }
+
+                    Thread.Sleep(10 * 1000);
+                }
+            }));
         }
 
         public void CreateEditSetupMenuItems()
@@ -64,8 +111,20 @@ namespace MyS3.GUI
                 fileMenuItem.DropDownItems.Insert(1, editMenuItem);
         }
 
+        private void TriggerUseMyS3Setups()
+        {
+            if (this.InvokeRequired)
+                this.Invoke(new VoidParameterDelegate(TriggerUseMyS3Setups));
+            else
+                UseMyS3Setups();
+        }
+
+        private delegate void VoidParameterDelegate();
+
         public void UseMyS3Setups()
         {
+            if (!Tools.HasInternet()) return;
+
             // Show or hide instructions and MyS3 tabs
             noSetupsLabel.Visible = SetupStore.Entries.Count == 0;
             mys3Tabs.Visible = SetupStore.Entries.Count > 0;
@@ -239,6 +298,13 @@ namespace MyS3.GUI
         }
 
         // ---
+
+        public new void Close()
+        {
+            foreach (MyS3Runner runner in myS3s) runner.Stop();
+
+            base.Close();
+        }
 
         private void OverviewForm_Closing(object sender, FormClosingEventArgs e)
         {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace MyS3.GUI
@@ -96,6 +97,25 @@ namespace MyS3.GUI
                 editSetupForm.Close();
 
             systray.Visible = false;
+
+            // ---
+
+            int maxThreads = 0;
+            int placeHolder = 0;
+            int availThreads = 0;
+            int timeOutSeconds = 10;
+
+            while (timeOutSeconds-- > 0)
+            {
+                ThreadPool.GetMaxThreads(out maxThreads, out placeHolder);
+                ThreadPool.GetAvailableThreads(out availThreads, out placeHolder);
+
+                if (availThreads == maxThreads) break;
+
+                Thread.Sleep(1000);
+            }
+
+            // ---
 
             Application.Exit();
             Environment.Exit(Environment.ExitCode);

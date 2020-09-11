@@ -44,6 +44,7 @@ namespace MyS3
                 fileWatcher = new FileSystemWatcher();
 
                 fileWatcher.Path = rootPath;
+                fileWatcher.InternalBufferSize = 1024 * 64; // 64 KB
 
                 fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName;
 
@@ -61,8 +62,9 @@ namespace MyS3
                 directoryWatcher = new FileSystemWatcher();
 
                 directoryWatcher.Path = rootPath;
+                directoryWatcher.InternalBufferSize = 1024 * 64; // 64 KB
 
-                directoryWatcher.NotifyFilter = NotifyFilters.DirectoryName;
+                directoryWatcher.NotifyFilter = NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
 
                 directoryWatcher.Renamed += OnRename;
                 directoryWatcher.Deleted += OnRemoveDirectory;
