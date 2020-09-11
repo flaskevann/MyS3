@@ -238,7 +238,7 @@ namespace MyS3.GUI
         {
             if (editedSetup == null ||
                 Tools.CanWriteToDirectory(
-                    (myS3PathLabel.Text+@"\").Replace(@"\\", @"\").Replace("'", "") + MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH))
+                    (myS3PathLabel.Text+@"\").Replace(@"\\", @"\")))
             {
                 myS3PathLabel.ForeColor = Color.Green;
             }

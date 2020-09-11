@@ -42,7 +42,7 @@ namespace MyS3
         {
             try
             {
-                string testFilename = DateTime.Now.Ticks + "________________________";
+                string testFilename = DateTime.Now.Ticks + ".________________________";
                 string testPath = directoryPath + @"\" + testFilename;
                 File.WriteAllText(testPath, "test");
                 File.Delete(testPath);

@@ -63,6 +63,7 @@ namespace MyS3
 
         public static readonly string[] IGNORED_FILE_EXTENSIONS = new string[]
         {
+            ".________________________", // use this if testing with files
             ".db",
             ".ini"
         };
@@ -1584,7 +1585,7 @@ namespace MyS3
                                 if (renameQueue.ContainsKey(newOfflineFilePathInsideMyS3))
                                     renameQueue.Remove(newOfflineFilePathInsideMyS3);
 
-                            // Remove old object
+
                             try { s3.RemoveAsync(oldS3FilePath, null).Wait(); }
                             catch (Exception) { }
 
