@@ -66,6 +66,16 @@ namespace MyS3.GUI
             Save();
         }
 
+        public static void Remove(string bucket)
+        {
+            if (setups.ContainsKey(bucket))
+            {
+                setups.Remove(bucket);
+
+                Save();
+            }
+        }
+
         public static void Remove(MyS3Setup setup)
         {
             if (setups.ContainsKey(setup.Bucket))

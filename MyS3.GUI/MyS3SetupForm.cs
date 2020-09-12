@@ -37,7 +37,6 @@ namespace MyS3.GUI
             editedSetup = SetupStore.Entries[bucket];
 
             bucketBox.Text = editedSetup.Bucket;
-            bucketBox.Enabled = false;
 
             foreach (string completeRegionName in regionBox.Items)
                 if (completeRegionName.Contains(editedSetup.Region)) // e.g. "Europe (Stockholm) / eu-north-1" contains "eu-north-1"
@@ -395,6 +394,9 @@ namespace MyS3.GUI
             };
 
             SetupStore.Add(setup);
+            if (editedSetup.Bucket != setup.Bucket)
+                SetupStore.Remove(editedSetup.Bucket);
+
             Client.MainForm.CreateEditSetupMenuItems();
             Client.MainForm.UseMyS3Setups();
             Close();

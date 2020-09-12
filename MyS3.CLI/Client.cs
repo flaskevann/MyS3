@@ -142,6 +142,7 @@ namespace MyS3.CLI
 
             // ---
 
+            // Test settings
             if (runTests)
             {
                 Tools.Log("Running tests to check certain settings");
@@ -189,6 +190,7 @@ namespace MyS3.CLI
 
             // ---
 
+            // Setup
             MyS3Runner myS3Runner = new MyS3Runner(
                 bucket, region,
                 awsAccessKeyID, awsSecretAccessKey,
@@ -197,19 +199,38 @@ namespace MyS3.CLI
                 sharedBucket,
                 null, Tools.Log);
             if (verbose) myS3Runner.VerboseLogFunc = Tools.Log;
-
             myS3Runner.Setup();
-            myS3Runner.Start();
 
-            Tools.Log("Press 'p' to pause or continue MyS3's uploads and downloads");
+            // Start
+            myS3Runner.Start();
+            Tools.Log("Press 'p' to pause or continue MyS3's downloads, uploads and restores");
             Tools.Log("Press 'q' at any time to quit MyS3 gracefully and then wait for work to finish");
             Tools.Log("...............................................................................");
 
+            // Pause mys3
             if (pauseDownloads) myS3Runner.PauseDownloads(true);
             if (pauseUploads) myS3Runner.PauseUploads(true);
+            ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
+            {
+                bool hasInternet = true;
 
-            // ---
+                while (!myS3Runner.Stopping)
+                {
+                    bool hasInternetNew = Tools.HasInternet();
 
+                    // Internet access changed
+                    if (hasInternetNew != hasInternet)
+                    {
+                        hasInternet = hasInternetNew;
+                        myS3Runner.Pause(!hasInternet);
+                    }
+
+                    // Pause until next check
+                    Thread.Sleep(10 * 1000);
+                }
+            }));
+
+            // Restore files
             if (timeRestoreRemovedFiles != null)
                 myS3Runner.RestoreFiles(
                     DateTime.ParseExact(timeRestoreRemovedFiles, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
@@ -221,13 +242,14 @@ namespace MyS3.CLI
 
             // ---
 
+            // Standby
             while (!myS3Runner.Stopping)
             {
                 switch (Console.ReadKey().KeyChar)
                 {
                     case 'p':
                         Console.Write("\b");
-                        myS3Runner.Pause(!myS3Runner.DownloadsPaused);
+                        myS3Runner.Pause(!myS3Runner.UploadsPaused); // Pause or continue uploads, downloads and restores
                         break;
 
                     case 'q':

@@ -28,7 +28,7 @@ namespace MyS3
         public static readonly long MIN_MULTIPART_SIZE = 5 * (long)Math.Pow(2, 20); // 5 MB
                                                                                     // No progress report when lower
 
-        public static readonly int TRANSFER_EVENT_PAUSE_MILLISECONDS = 500;
+        public static readonly int PROGRESS_REPORT_PAUSE = 1000;
 
         // ---
 
@@ -352,7 +352,7 @@ namespace MyS3
                 {
                     // Upload parts
                     List<UploadPartResponse> uploadPartResponses = new List<UploadPartResponse>();
-                    DateTime timeNextProgressReport = DateTime.Now.AddMilliseconds(TRANSFER_EVENT_PAUSE_MILLISECONDS);
+                    DateTime timeNextProgressReport = DateTime.Now.AddMilliseconds(PROGRESS_REPORT_PAUSE);
                     long transferredBytes = 0;
                     long filePosition = 0;
                     for (int i = 1; filePosition < uploadFileInfo.Length; i++)
@@ -375,7 +375,7 @@ namespace MyS3
                                 if (DateTime.Now > timeNextProgressReport)
                                 {
                                     progressEventHandler(shownFilePath, transferredBytes, uploadFileInfo.Length, MyS3Runner.TransferType.UPLOAD);
-                                    timeNextProgressReport = DateTime.Now.AddMilliseconds(TRANSFER_EVENT_PAUSE_MILLISECONDS);
+                                    timeNextProgressReport = DateTime.Now.AddMilliseconds(PROGRESS_REPORT_PAUSE);
                                 }
                             };
                         }
@@ -444,7 +444,7 @@ namespace MyS3
             using (Stream responseStream = getResult.ResponseStream)
             using (FileStream fileStream = File.OpenWrite(localFilePath))
             {
-                DateTime timeNextProgressReport = DateTime.Now.AddMilliseconds(TRANSFER_EVENT_PAUSE_MILLISECONDS);
+                DateTime timeNextProgressReport = DateTime.Now.AddMilliseconds(PROGRESS_REPORT_PAUSE);
 
                 byte[] buffer = new byte[1024]; // 1 KB
                 long downloadedBytes = 0;
@@ -463,7 +463,7 @@ namespace MyS3
                             if (DateTime.Now > timeNextProgressReport)
                             {
                                 progressEventHandler(shownFilePath, downloadedBytes, getResult.Headers.ContentLength, transferType);
-                                timeNextProgressReport = DateTime.Now.AddMilliseconds(TRANSFER_EVENT_PAUSE_MILLISECONDS);
+                                timeNextProgressReport = DateTime.Now.AddMilliseconds(PROGRESS_REPORT_PAUSE);
                             }
                         }
                     }

@@ -64,6 +64,7 @@ namespace MyS3.GUI
                 {
                     bool hasInternetNew = Tools.HasInternet();
 
+                    // Internet access changed
                     if (hasInternetNew != hasInternet)
                     {
                         hasInternet = hasInternetNew;
@@ -71,14 +72,23 @@ namespace MyS3.GUI
                         if (hasInternet)
                         {
                             UpdateStatus("Status: Ready");
-                            TriggerUseMyS3Setups();
+
+                            if (myS3s.Count == 0)
+                                TriggerUseMyS3Setups();
+                            else
+                                foreach (MyS3Runner mys3 in myS3s)
+                                    mys3.Pause(false);
                         }
                         else
                         {
                             UpdateStatus("Status: No network connection");
+
+                            foreach (MyS3Runner mys3 in myS3s)
+                                mys3.Pause(true);
                         }
                     }
 
+                    // Pause until next check
                     Thread.Sleep(10 * 1000);
                 }
             }));

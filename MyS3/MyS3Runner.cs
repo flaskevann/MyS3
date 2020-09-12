@@ -97,11 +97,11 @@ namespace MyS3
 
         private static readonly string INDEX_FILE_PATH = ".index.bin"; // bucket name must be added at runtime - example: "my-bucket.index.bin"
 
-        private Dictionary<string, string> fileIndex = new Dictionary<string, string>(); // MyS3 file paths ==> S3 object paths
+        private Dictionary<string, string> fileIndex = new Dictionary<string, string>(); // local file paths ==> S3 object paths
 
         // ---
 
-        private List<string> changedQueue = new List<string>(); // MyS3 file paths
+        private List<string> changedQueue = new List<string>(); // local file paths
 
         public ImmutableList<string> UploadQueue
         {
@@ -123,8 +123,8 @@ namespace MyS3
                 }
             }
         }
-        private List<string> uploadQueue = new List<string>(); // MyS3 file paths
-        private Dictionary<string, DateTime> uploadedList = new Dictionary<string, DateTime>(); // MyS3 file paths ==> time uploaded
+        private List<string> uploadQueue = new List<string>(); // local file paths
+        private Dictionary<string, DateTime> uploadedList = new Dictionary<string, DateTime>(); // local file paths ==> time uploaded
 
         public ImmutableList<string> DownloadQueue
         {
@@ -169,12 +169,12 @@ namespace MyS3
                 }
             }
         }
-        private List<string> namedDownloadQueue = new List<string>(); // MyS3 file paths
+        private List<string> namedDownloadQueue = new List<string>(); // local file paths
 
         private Dictionary<string, string> renameQueue = new Dictionary<string, string>(); // MyS3 new file paths ==> old file paths
         private Dictionary<string, DateTime> renamedList = new Dictionary<string, DateTime>(); // MyS3 new file paths ==> time renamed
 
-        private List<string> removeQueue = new List<string>(); // MyS3 file paths
+        private List<string> removeQueue = new List<string>(); // local file paths
 
         public ImmutableList<string> RestoreDownloadQueue
         {
@@ -218,7 +218,7 @@ namespace MyS3
                 }
             }
         }
-        private List<string> namedRestoreDownloadQueue = new List<string>(); // MyS3 file paths
+        private List<string> namedRestoreDownloadQueue = new List<string>(); // local file paths
 
         // ---
 
@@ -405,7 +405,11 @@ namespace MyS3
                     string offlineFilePathInsideMyS3 = offlineFilePath.Replace(myS3Path, "");
                     string s3FilePath = Convert.ToBase64String(
                         HashWrapper.CreateSHA2Hash(
-                            Encoding.UTF8.GetBytes(offlineFilePathInsideMyS3.Replace("/", "")))).Replace(@"\", ""); // mys3 file path ==> hash as s3 key
+                            Encoding.UTF8.GetBytes(
+                                offlineFilePathInsideMyS3.Replace("/", "").Replace(@"\", "")
+                            )
+                        )
+                    ).Replace(@"\", "").Replace(@"/", ""); // local file path ==> hash as s3 key
 
                     // Skip log and work folders
                     if (offlineFilePath.StartsWith(myS3Path + RELATIVE_LOCAL_MYS3_WORK_DIRECTORY_PATH) ||
@@ -509,12 +513,13 @@ namespace MyS3
         {
             PauseDownloads(pause);
             PauseUploads(pause);
+            PauseRestores(pause);
         }
 
         public bool restorePaused { get { return pauseRestore; } }
         private bool pauseRestore = false;
 
-        public void PauseRestore(bool pause)
+        public void PauseRestores(bool pause)
         {
             this.pauseRestore = pause;
 
@@ -550,7 +555,10 @@ namespace MyS3
             string s3FilePath = Convert.ToBase64String(
                 HashWrapper.CreateSHA2Hash(
                     Encoding.UTF8.GetBytes(
-                        offlineFilePathInsideMyS3.Replace("/", "")))).Replace(@"\", ""); // mys3 file path ==> hash as s3 key
+                        offlineFilePathInsideMyS3.Replace("/", "").Replace(@"\", "")
+                    )
+                )
+            ).Replace(@"\", "").Replace(@"/", ""); // local file path ==> hash as s3 key
 
             // ---
 
@@ -598,7 +606,10 @@ namespace MyS3
             string newS3FilePath = Convert.ToBase64String(
                 HashWrapper.CreateSHA2Hash(
                     Encoding.UTF8.GetBytes(
-                        newOfflineFilePathInsideMyS3.Replace("/", "")))).Replace(@"\", ""); // mys3 file path ==> hash as s3 key
+                        newOfflineFilePathInsideMyS3.Replace("/", "").Replace(@"\", "")
+                    )
+                )
+            ).Replace(@"\", "").Replace(@"/", ""); // local file path ==> hash as s3 key
 
             // ---
 
@@ -1086,7 +1097,10 @@ namespace MyS3
                         string s3FilePath = Convert.ToBase64String(
                             HashWrapper.CreateSHA2Hash(
                                 Encoding.UTF8.GetBytes(
-                                    offlineFilePathInsideMyS3.Replace(@"/", "")))).Replace(@"\", ""); // mys3 file path ==> hash as s3 key
+                                    offlineFilePathInsideMyS3.Replace(@"/", "").Replace(@"\", "")
+                                )
+                            )
+                        ).Replace(@"\", "").Replace(@"/", ""); // local file path ==> hash as s3 key
                         string encryptedUploadFilePath = null;
 
                         // Check existence and access
@@ -1201,7 +1215,7 @@ namespace MyS3
 
                                         // Transfer progress report
                                         if (UploadSpeed != 0 &&
-                                            (DateTime.Now - timeTransferProgressShown).TotalMilliseconds >= S3Wrapper.TRANSFER_EVENT_PAUSE_MILLISECONDS)
+                                            (DateTime.Now - timeTransferProgressShown).TotalMilliseconds >= S3Wrapper.PROGRESS_REPORT_PAUSE)
                                         {
                                             timeTransferProgressShown = DateTime.Now;
 
@@ -1471,7 +1485,7 @@ namespace MyS3
 
                     bool haveRenameWork = false;
                     lock (renameQueue) haveRenameWork = renameQueue.Count > 0;
-                    while (haveRenameWork)
+                    while (haveRenameWork && !pauseUploads)
                     {
                         // Remove old renames from "log"
                         while (true)
@@ -1498,13 +1512,19 @@ namespace MyS3
                         string newS3FilePath = Convert.ToBase64String(
                             HashWrapper.CreateSHA2Hash(
                                 Encoding.UTF8.GetBytes(
-                                    newOfflineFilePathInsideMyS3.Replace("/", "")))).Replace(@"\", ""); // mys3 file path ==> hash as s3 key
+                                    newOfflineFilePathInsideMyS3.Replace("/", "").Replace(@"\", "")
+                                )
+                            )
+                        ).Replace(@"\", "").Replace(@"/", ""); // local file path ==> hash as s3 key
                         string oldOfflineFilePathInsideMyS3 = renameKVP.Value;
                         string oldOfflineFilePath = myS3Path + oldOfflineFilePathInsideMyS3;
                         string oldS3FilePath = Convert.ToBase64String(
                             HashWrapper.CreateSHA2Hash(
                                 Encoding.UTF8.GetBytes(
-                                    oldOfflineFilePathInsideMyS3.Replace("/", "")))).Replace(@"\", ""); // mys3 file path ==> hash as s3 key
+                                    oldOfflineFilePathInsideMyS3.Replace("/", "").Replace(@"\", "")
+                                )
+                            )
+                        ).Replace(@"\", "").Replace(@"/", ""); // local file path ==> hash as s3 key
 
                         // Start process
                         bool copySuccess = false; // First problem: S3 object to be copied may not exist yet, because upload did not finish before renaming
@@ -1613,7 +1633,7 @@ namespace MyS3
 
                     bool haveRemoveWork = false;
                     lock (removeQueue) haveRemoveWork = removeQueue.Count > 0;
-                    while (haveRemoveWork)
+                    while (haveRemoveWork && !pauseUploads)
                     {
                         // Get paths
                         string offlineFilePathInsideMyS3 = null;
@@ -1623,7 +1643,10 @@ namespace MyS3
                         string s3FilePath = Convert.ToBase64String(
                             HashWrapper.CreateSHA2Hash(
                                 Encoding.UTF8.GetBytes(
-                                    offlineFilePathInsideMyS3.Replace("/", "")))).Replace(@"\", ""); // mys3 file path ==> hash as s3 key
+                                    offlineFilePathInsideMyS3.Replace("/", "").Replace(@"\", "")
+                                )
+                            )
+                        ).Replace(@"\", "").Replace(@"/", ""); // local file path ==> hash as s3 key
 
                         // Remove file from S3
                         try
@@ -1673,6 +1696,10 @@ namespace MyS3
 
         public void RestoreFiles(DateTime earliestLastModified, bool onlyRestoreLastRemoved)
         {
+            if (pauseRestore) return;
+
+            // ---
+
             ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) => {
 
                 // Get all keys and versions

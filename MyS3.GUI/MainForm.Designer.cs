@@ -246,11 +246,11 @@
         private System.Windows.Forms.TabControl mys3Tabs;
         private System.Windows.Forms.TabPage tabPage1;
         private System.Windows.Forms.TabPage tabPage2;
-        private System.Windows.Forms.Label noSetupsLabel;
         private System.Windows.Forms.ToolStripMenuItem optionsMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripMenuItem quitMenuItem;
         private System.Windows.Forms.ToolStripMenuItem hideMenuItem;
+        private System.Windows.Forms.Label noSetupsLabel;
     }
 }
 
