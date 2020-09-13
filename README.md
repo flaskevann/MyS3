@@ -51,9 +51,7 @@ The console client (CLI client):
 4. Type and run <code>MyS3.CLI.exe</code> on Windows or <code>./MyS3.CLI</code> on Linux.
 5. Consider putting your command line arguments in a BAT or SH file when everything works OK.
 
-UPDATE: I removed the first release because I discovered a few severe sync bugs. New release coming in the next few days.
-
-MyS3 also seems very slow and CPU intensive when handling tens of thousands of files. So it still has to be considered beta for the time being.
+UPDATE: I removed the first release because I discovered a few severe sync bugs. New release coming in the next few days. MyS3 also seems very slow and CPU intensive when handling tens of thousands of files. So it still has to be considered beta for the time being.
 
 ## License
 
