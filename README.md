@@ -14,6 +14,8 @@ Remember, everything you upload is very likely to stay in the cloud forever. And
 
 Read the rest of the pitch at <code>Docs/WhyUseMyS3.pdf</code>
 
+For downloaded content like music, software, etc. you don't need MyS3 and encryption. You can just sync your folder to your bucket using the AWS CLI.
+
 ## What
 
 MyS3 is a tool that makes is possible to encrypt file data on the fly and upload to Simple Storage Service (S3), which is part of Amazon Web Services (AWS).
@@ -48,6 +50,10 @@ The console client (CLI client):
 3. Open a console window / a terminal and change directory to the MyS3's executable.
 4. Type and run <code>MyS3.CLI.exe</code> on Windows or <code>./MyS3.CLI</code> on Linux.
 5. Consider putting your command line arguments in a BAT or SH file when everything works OK.
+
+UPDATE: I removed the first release because I discovered a few severe sync bugs. New release coming in the next few days.
+
+MyS3 also seems very slow and CPU intensive when handling tens of thousands of files. So it still has to be considered beta for the time being.
 
 ## License
 
