@@ -14,7 +14,7 @@ Remember, everything you upload is very likely to stay in the cloud forever. And
 
 Read the rest of the pitch at <code>Docs/WhyUseMyS3.pdf</code>
 
-For downloaded content like music, software, etc. you don't need MyS3 and encryption. You can sync a folder to a bucket using the AWS CLI.
+If you're uploading downloaded content like music, software, etc. you don't need MyS3 or encryption. You can just sync your folders directly to S3 buckets instead, using the AWS CLI. Tip: Make a sync script that runs every hour or day.
 
 ## What
 
