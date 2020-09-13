@@ -842,7 +842,7 @@ namespace MyS3.GUI
                         }
                         else if (myS3.IsComparingFiles)
                         {
-                            control.Text = "Comparing S3 objects and local files (" + myS3.ComparisonPercent + " %)";
+                            control.Text = "Comparing S3 objects and MyS3 folder contents (" + myS3.ComparisonPercent + " %)";
                             control.ForeColor = Color.DarkOrange;
                         }
                         else

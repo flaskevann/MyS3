@@ -4,6 +4,8 @@ using System.Globalization;
 using System.Threading;
 
 using Amazon;
+using Amazon.S3.Model;
+using System.Collections.Generic;
 
 namespace MyS3.CLI
 {
@@ -28,6 +30,7 @@ namespace MyS3.CLI
             bool pauseUploads = false;
             string timeRestoreRemovedFiles = null;
             string timeRestoreFileVersions = null;
+            bool emptyBucket = false;
             bool printUse = false;
             foreach (string arg in args)
             {
@@ -86,6 +89,10 @@ namespace MyS3.CLI
                 {
                     timeRestoreFileVersions = arg.Replace("--restore-file-versions=", "");
                 }
+                else if (arg == "--empty-bucket")
+                {
+                    emptyBucket = true;
+                }
                 else
                 {
                     Console.WriteLine("Unknown startup argument: " + arg);
@@ -105,9 +112,8 @@ namespace MyS3.CLI
             }
             if (printUse)
             {
-                Console.WriteLine("MyS3.CLI settings:");
-                Console.WriteLine("  --version");
-                Console.WriteLine("OR");
+                Console.WriteLine("MyS3.CLI has 2 different run configurations:");
+                Console.WriteLine("(1) Encrypt and sync files:");
                 Console.WriteLine("  --verbose");
                 Console.WriteLine("  --run-tests");
                 Console.WriteLine("  --bucket=<name of your bucket>*");
@@ -120,6 +126,14 @@ namespace MyS3.CLI
                 Console.WriteLine("  --pause-uploads");
                 Console.WriteLine("  --restore-removed-files=<year-month-day-hour>");
                 Console.WriteLine("  --restore-file-versions=<year-month-day-hour>");
+                Console.WriteLine("(2) Empty entire S3 bucket:");
+                Console.WriteLine("  --bucket=<name of your bucket>*");
+                Console.WriteLine("  --region=<name of bucket region>*");
+                Console.WriteLine("  --aws-access-key=<your bucket user's key id>,<your bucket user's secret access key>*");
+                Console.WriteLine("  --empty-bucket     (CAREFUL! This setting can empty your bucket in a split second!");
+                Console.WriteLine("");
+                Console.WriteLine("To check MyS3 version:");
+                Console.WriteLine("  --version");
                 Console.WriteLine();
                 Console.WriteLine("(All fields marked * are mandatory because MyS3 will not work otherwise)");
                 Console.WriteLine();
@@ -127,15 +141,67 @@ namespace MyS3.CLI
                 Console.WriteLine();
                 Console.WriteLine("If S3 bucket is used by multiple clients use '--shared-bucket' to enable extra S3 and MyS3 comparisons");
                 Console.WriteLine();
-                Console.WriteLine("Windows example:");
+                Console.WriteLine("Windows sync (1) example:");
                 Console.WriteLine("MyS3.CLI --verbose --bucket=myfiles --region=eu-west-1 --aws-access-key=AKIA123etc,abc123etc");
                 Console.WriteLine("         --encryption-password=\"my password\" --mys3-folder=\"C:\\Users\\Smiley\\Documents\\MyS3\\\"");
                 Console.WriteLine("         --restore-removed-files=2020-07-01-15 --restore-file-versions=2020-01-01-12'");
                 Console.WriteLine();
-                Console.WriteLine("*nix example:");
+                Console.WriteLine("*nix sync (1) example:");
                 Console.WriteLine("MyS3.CLI --verbose --bucket=myfiles --region=eu-west-1 --aws-access-key=AKIA123etc,abc123etc");
                 Console.WriteLine("         --encryption-password=\"my password\" --mys3-folder=\"/home/Smiley/Documents/MyS3/\"");
                 Console.WriteLine("         --restore-removed-files=2020-07-01-15 --restore-file-versions=2020-01-01-12'");
+
+                return;
+            }
+
+            // ---
+
+
+            // ---
+
+            // Empty bucket
+            if (emptyBucket)
+            {
+                Console.WriteLine("You have selected to EMPTY your entire S3 bucket \"" + bucket + "\"");
+                Console.Write("Type 'y' to continue or something else to abort: ");
+
+                if (Console.ReadKey().KeyChar == 'y')
+                {
+                    Console.WriteLine("");
+
+                    // Setup S3 interface
+                    S3Wrapper s3 = new S3Wrapper(
+                        bucket, RegionEndpoint.GetBySystemName(region),
+                        awsAccessKeyID, awsSecretAccessKey);
+
+                    // Get object versions
+                    Console.WriteLine("Retrieving S3 object versions - please wait");
+                    List<S3ObjectVersion> s3ObjectVersionsList = s3.GetCompleteObjectVersionsList(null);
+
+                    // Start removal
+                    if (s3ObjectVersionsList.Count == 0)
+                    {
+                        Console.WriteLine("No S3 object versions to remove - bucket already empty");
+                    }
+                    else
+                    {
+                        long counter = 0;
+                        foreach (S3ObjectVersion s3ObjectVersion in s3ObjectVersionsList)
+                        {
+                            s3.RemoveAsync(s3ObjectVersion.Key, s3ObjectVersion.VersionId).Wait();
+                            counter++;
+                            Console.WriteLine("Removed version \"" + s3ObjectVersion.VersionId + "\" of S3 object \"" +
+                                s3ObjectVersion.Key + "\" " + "[" + counter + " / " + s3ObjectVersionsList.Count + "]");
+                        }
+
+                        Console.WriteLine("Your S3 bucket \"" + bucket + "\" is now empty");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("");
+                    Console.WriteLine("Aborted emptying bucket \"" + bucket + "\"");
+                }
 
                 return;
             }
