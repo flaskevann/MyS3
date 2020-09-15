@@ -61,19 +61,16 @@ namespace MyS3
                 return true;
 
             // Can file be opened = everything OK (Not reliable on *nix !)
-            FileStream stream = null;
-            var file = new FileInfo(filePath);
             try
             {
-                stream = file.Open(FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                FileInfo file = new FileInfo(filePath);
+                using (FileStream stream = file.Open(FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                }
             }
             catch (Exception)
             {
                 return true;
-            }
-            finally
-            {
-                stream?.Close();
             }
 
             return false;

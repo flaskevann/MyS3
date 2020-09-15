@@ -307,12 +307,17 @@ namespace MyS3
             if (version != null) request.VersionId = version;
 
             return await client.GetObjectMetadataAsync(request);
+            // Note: GetObjectMetadataResponse does not return local time in LastModified
+            //       All other methods with a LastModified somewhere returns local time
         }
 
         // ---
 
-        public async Task UploadAsync(string localFilePath, string s3ObjectPath, string shownFilePath,
-            MetadataCollection metadata, CancellationToken cancelToken, Action<string, long, long, MyS3Runner.TransferType> progressEventHandler)
+        public async Task UploadAsync(string localFilePath,
+            string s3ObjectPath, string shownFilePath,
+            MetadataCollection metadata,
+            CancellationToken cancelToken,
+            Action<string, long, long, MyS3Runner.TransferType> progressEventHandler)
         {
             // Info
             FileInfo uploadFileInfo = new FileInfo(localFilePath);
@@ -385,7 +390,7 @@ namespace MyS3
                         UploadPartResponse uploadPartResponse = await client.UploadPartAsync(uploadRequest, cancelToken);
                         uploadPartResponses.Add(uploadPartResponse);
 
-                        Thread.Sleep(1000);
+//                        Thread.Sleep(1000);
                     }
 
                     // Combine parts
@@ -430,7 +435,11 @@ namespace MyS3
             await client.CopyObjectAsync(copyRequest);
         }
 
-        public async Task DownloadAsync(string localFilePath, string s3ObjectPath, string version, string shownFilePath, CancellationToken cancelToken, Action<string, long, long, MyS3Runner.TransferType> progressEventHandler, MyS3Runner.TransferType transferType)
+        public async Task<MetadataCollection> DownloadAsync(string localFilePath,
+            string s3ObjectPath, string version,
+            string shownFilePath,
+            CancellationToken cancelToken,
+            Action<string, long, long, MyS3Runner.TransferType> progressEventHandler, MyS3Runner.TransferType transferType)
         {
             GetObjectRequest request = new GetObjectRequest
             {
@@ -441,6 +450,8 @@ namespace MyS3
 
             GetObjectResponse getResult = await client.GetObjectAsync(request, cancelToken);
             
+            // ---
+
             using (Stream responseStream = getResult.ResponseStream)
             using (FileStream fileStream = File.OpenWrite(localFilePath))
             {
@@ -471,6 +482,8 @@ namespace MyS3
                     fileStream.Write(ms.ToArray());
                 }
             }
+
+            return getResult.Metadata;
         }
 
         public async Task RemoveAsync(string s3ObjectPath, string version)

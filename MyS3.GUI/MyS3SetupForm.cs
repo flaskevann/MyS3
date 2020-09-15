@@ -263,6 +263,12 @@ namespace MyS3.GUI
 
         private void resetMyS3PathButton_Click(object sender, EventArgs e)
         {
+            string defaultMyS3Path = Environment.ExpandEnvironmentVariables(
+                MyS3Runner.DEFAULT_RELATIVE_LOCAL_MYS3_DIRECTORY_PATH);
+
+            if (!Directory.Exists(defaultMyS3Path))
+                Directory.CreateDirectory(defaultMyS3Path);
+
             myS3PathLabel.Text = Environment.ExpandEnvironmentVariables(
                 MyS3Runner.DEFAULT_RELATIVE_LOCAL_MYS3_DIRECTORY_PATH);
 
@@ -358,7 +364,6 @@ namespace MyS3.GUI
 
         private void CheckMyS3Setup()
         {
-
             bool goodMyS3Settings =
                 myS3PathLabel.ForeColor != Color.Firebrick && // ok local file path
                 encryptionPasswordBox.BackColor != DEFAULT_CONTROL_BACKGROUND_COLOR && // password set
