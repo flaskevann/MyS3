@@ -366,20 +366,20 @@ namespace MyS3
                 bool acquiredLock = false;
                 try
                 {
-                    Monitor.TryEnter(restoreDownloadList, 10, ref acquiredLock);
+                    Monitor.TryEnter(restoreDownloadDict, 10, ref acquiredLock);
                     if (acquiredLock)
-                        return restoreDownloadList.Keys.ToImmutableList<string>();
+                        return restoreDownloadDict.Keys.ToImmutableList<string>();
                     else
                         return null;
                 }
                 finally
                 {
                     if (acquiredLock)
-                        Monitor.Exit(restoreDownloadList);
+                        Monitor.Exit(restoreDownloadDict);
                 }
             }
         }
-        private Dictionary<string, List<string>> restoreDownloadList = new Dictionary<string, List<string>>(); // S3 object paths ==> versionIds
+        private Dictionary<string, List<string>> restoreDownloadDict = new Dictionary<string, List<string>>(); // S3 object paths ==> versionIds
 
         public ImmutableList<string> NamedRestoreDownloadList
         {
@@ -827,6 +827,7 @@ namespace MyS3
                                 verboseLogFunc("Retrieving S3 object lists for S3 and MyS3 comparisons");
 
                             isComparingFiles = true;
+                            numberOfComparisons = 0;
 
                             try
                             {
@@ -860,7 +861,6 @@ namespace MyS3
                                     }
                                 }
 
-                                numberOfComparisons = 0;
                                 totalNumberOfComparisons =
                                     ((removedS3Objects.Count > 0) ? myS3FileIndexDict.Count : 0) + // looping through local files
                                     s3ObjectIndexDict.Count + // looping through S3 objects
@@ -1582,7 +1582,7 @@ namespace MyS3
                             // S3 object info
                             S3Object renameS3ObjectInfo = s3ObjectIndexDict[oldS3ObjectKey].Item1;
 
-                            // Metadata
+                            // Custom metadata
                             MetadataCollection renameS3ObjectMetadata = s3ObjectIndexDict[oldS3ObjectKey].Item2;
                             string newEncryptedFilePath = Convert.ToBase64String(
                                 AesEncryptionWrapper.EncryptWithGCM(
@@ -1600,17 +1600,26 @@ namespace MyS3
                                 // Remove old S3 object
                                 s3.RemoveAsync(oldS3ObjectKey, null).Wait();
 
-                                // Finish by setting last changed time
-                                File.SetLastWriteTime(newOfflineFilePath, DateTime.Now);
+                                // Custom metadata
+                                GetObjectMetadataResponse renameS3ObjectMetadataResult = s3.GetMetadata(newS3ObjectKey, null).Result;
+                                renameS3ObjectMetadataResult.LastModified = renameS3ObjectMetadataResult.LastModified.ToLocalTime();
+
+                                // Set last changed time
+                                File.SetLastWriteTime(newOfflineFilePath, renameS3ObjectMetadataResult.LastModified);
 
                                 // Update S3 object index
-                                if (s3ObjectIndexDict.ContainsKey(oldS3ObjectKey))
+                                lock (s3ObjectIndexDict)
                                 {
-                                    s3ObjectIndexDict.Remove(oldS3ObjectKey);
+                                    if (s3ObjectIndexDict.ContainsKey(oldS3ObjectKey))
+                                        s3ObjectIndexDict.Remove(oldS3ObjectKey);
 
                                     renameS3ObjectInfo.Key = newS3ObjectKey;
-                                    renameS3ObjectInfo.LastModified = DateTime.Now;
-                                    s3ObjectIndexDict.Add(newS3ObjectKey, Tuple.Create(renameS3ObjectInfo, renameS3ObjectMetadata));
+                                    renameS3ObjectInfo.LastModified = renameS3ObjectMetadataResult.LastModified;
+
+                                    if (s3ObjectIndexDict.ContainsKey(newS3ObjectKey))
+                                        s3ObjectIndexDict[newS3ObjectKey] = Tuple.Create(renameS3ObjectInfo, renameS3ObjectMetadata);
+                                    else
+                                        s3ObjectIndexDict.Add(newS3ObjectKey, Tuple.Create(renameS3ObjectInfo, renameS3ObjectMetadata));
                                 }
 
                                 renameCounter++;
@@ -1622,7 +1631,12 @@ namespace MyS3
 
                                 // Add to block queue - in case of slow file activity handling
                                 lock (renamedDict)
-                                    renamedDict.Add(newS3ObjectKey, DateTime.Now);
+                                {
+                                    if (renamedDict.ContainsKey(newS3ObjectKey))
+                                        renamedDict[newS3ObjectKey] = DateTime.Now;
+                                    else
+                                        renamedDict.Add(newS3ObjectKey, DateTime.Now);
+                                }
                             }
 
                             // Aborted so clean up attempt
@@ -1767,9 +1781,9 @@ namespace MyS3
                             if (newestS3ObjectDeleteMarker == null || s3ObjectDeleteMarker.LastModified > newestS3ObjectDeleteMarker.LastModified) // local times
                                 newestS3ObjectDeleteMarker = s3ObjectDeleteMarker;
 
-                        lock (restoreDownloadList)
-                            if (!restoreDownloadList.ContainsKey(kvp.Key))
-                                restoreDownloadList.Add(
+                        lock (restoreDownloadDict)
+                            if (!restoreDownloadDict.ContainsKey(kvp.Key))
+                                restoreDownloadDict.Add(
                                     kvp.Key,
                                     new List<string>() { newestS3ObjectDeleteMarker.VersionId }
                                 );
@@ -1777,16 +1791,16 @@ namespace MyS3
 
                     // Do the restoring of last removed S3 objects
                     bool hasRestores = false;
-                    lock (restoreDownloadList) hasRestores = restoreDownloadList.Count > 0;
+                    lock (restoreDownloadDict) hasRestores = restoreDownloadDict.Count > 0;
                     if (hasRestores)
                     {
                         if (verboseLogFunc != null)
-                            lock (restoreDownloadList)
-                                verboseLogFunc("Restoring " + restoreDownloadList.Count + " removed " + (restoreDownloadList.Count == 1 ? "file" : "files"));
+                            lock (restoreDownloadDict)
+                                verboseLogFunc("Restoring " + restoreDownloadDict.Count + " removed " + (restoreDownloadDict.Count == 1 ? "file" : "files"));
 
                         // Remove S3 object delete markers
-                        s3.RemoveAsync(restoreDownloadList).Wait();
-                        restoreDownloadList.Clear();
+                        s3.RemoveAsync(restoreDownloadDict).Wait();
+                        restoreDownloadDict.Clear();
 
                         // Trigger download of restored S3 objects
                         newS3AndMyS3ComparisonNeeded = true;
@@ -1800,17 +1814,18 @@ namespace MyS3
                     foreach (S3ObjectVersion s3ObjectVersion in s3ObjectVersionsList)
                     {
                         // Found new S3 object version
-                        if (!s3ObjectVersion.IsDeleteMarker && s3ObjectVersion.LastModified >= timeEarliestLastModified) // local time
+                        if (!s3ObjectVersion.IsDeleteMarker && !s3ObjectVersion.IsLatest &&
+                             s3ObjectVersion.LastModified >= timeEarliestLastModified) // local time
                         {
-                            lock (restoreDownloadList)
+                            lock (restoreDownloadDict)
                             {
                                 // Add object version to list
-                                if (restoreDownloadList.ContainsKey(s3ObjectVersion.Key))
-                                    restoreDownloadList[s3ObjectVersion.Key].Add(s3ObjectVersion.VersionId);
+                                if (restoreDownloadDict.ContainsKey(s3ObjectVersion.Key))
+                                    restoreDownloadDict[s3ObjectVersion.Key].Add(s3ObjectVersion.VersionId);
 
                                 // Add new key with list containing the new object version
                                 else
-                                    restoreDownloadList.Add(
+                                    restoreDownloadDict.Add(
                                         s3ObjectVersion.Key,
                                         new List<string>() { s3ObjectVersion.VersionId }
                                     );
@@ -1820,12 +1835,12 @@ namespace MyS3
 
                     // Now do the restoring of earlier file versions
                     bool hasRestoreWork = false;
-                    lock (restoreDownloadList) hasRestoreWork = restoreDownloadList.Count > 0;
+                    lock (restoreDownloadDict) hasRestoreWork = restoreDownloadDict.Count > 0;
                     if (hasRestoreWork)
                     {
                         if (verboseLogFunc != null)
-                            lock (restoreDownloadList)
-                                verboseLogFunc("Restoring file versions for " + restoreDownloadList.Count + " " + (restoreDownloadList.Count == 1 ? "file" : "files"));
+                            lock (restoreDownloadDict)
+                                verboseLogFunc("Restoring file versions for " + restoreDownloadDict.Count + " " + (restoreDownloadDict.Count == 1 ? "file" : "files"));
 
                         // Run restore worker
                         RestoreFileVersions();
@@ -1841,16 +1856,16 @@ namespace MyS3
                 int restoreCounter = 1;
 
                 bool hasRestoreWork = false;
-                lock (restoreDownloadList) hasRestoreWork = restoreDownloadList.Count > 0;
+                lock (restoreDownloadDict) hasRestoreWork = restoreDownloadDict.Count > 0;
                 while (hasRestoreWork && !pauseRestore)
                 {
                     // Get paths and versions
                     string s3ObjectKey = null;
                     string[] s3ObjectVersions = null;
-                    lock (restoreDownloadList)
+                    lock (restoreDownloadDict)
                     {
-                        s3ObjectKey = restoreDownloadList.First().Key;
-                        s3ObjectVersions = restoreDownloadList.First().Value.ToArray();
+                        s3ObjectKey = restoreDownloadDict.First().Key;
+                        s3ObjectVersions = restoreDownloadDict.First().Value.ToArray();
                     }
                     string originalOfflineFilePathInsideMyS3 = null;
                     string offlineFilePathInsideMyS3 = null;
@@ -1906,9 +1921,9 @@ namespace MyS3
                             restoreSpeedCalc.Start(RestoreDownloadSize);
                             lock (namedRestoreDownloadList) namedRestoreDownloadList.Add(offlineFilePathInsideMyS3);
                             if (verboseLogFunc != null)
-                                lock (restoreDownloadList)
+                                lock (restoreDownloadDict)
                                     verboseLogFunc("S3 object for restoring \"" + originalOfflineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") +
-                                            "\" [v." + versionCounter + "] starts downloading [" + restoreCounter + "/" + (restoreCounter + restoreDownloadList.Count / 2 - 1) +
+                                            "\" [v." + versionCounter + "] starts downloading [" + restoreCounter + "/" + (restoreCounter + restoreDownloadDict.Count / 2 - 1) +
                                                 "][" + Tools.GetByteSizeAsText(metadataResult.Headers.ContentLength) + "]");
 
                             // Start restore
@@ -1970,8 +1985,8 @@ namespace MyS3
                                 Thread.Sleep(500); // give client time to show downloaded state
 
                                 // Remove from work queue
-                                lock (restoreDownloadList)
-                                    restoreDownloadList.Remove(s3ObjectKey);
+                                lock (restoreDownloadDict)
+                                    restoreDownloadDict.Remove(s3ObjectKey);
                                 lock (namedRestoreDownloadList)
                                     namedRestoreDownloadList.Remove(offlineFilePathInsideMyS3);
                             }
@@ -1980,10 +1995,10 @@ namespace MyS3
                         }
                         catch (CryptographicException)
                         {
-                            lock (restoreDownloadList)
+                            lock (restoreDownloadDict)
                             {
                                 string problem = "S3 restore file \"" + s3ObjectKey.Substring(0, 10) + "****" + "\" [" +
-                                    restoreCounter + "/" + (restoreCounter + restoreDownloadList.Count - 1) + "]" + " failed to be decrypted. Wrong encryption/decryption password?";
+                                    restoreCounter + "/" + (restoreCounter + restoreDownloadDict.Count - 1) + "]" + " failed to be decrypted. Wrong encryption/decryption password?";
 
                                 if (verboseLogFunc != null) verboseLogFunc(problem);
                                 errorLogFunc(myS3Path + RELATIVE_LOCAL_MYS3_LOG_DIRECTORY_PATH + "Decryption.log", problem);
@@ -1991,10 +2006,10 @@ namespace MyS3
                         }
                         catch (Exception ex) // Happens when trying to download deleted files or it's metadata
                         {
-                            lock (restoreDownloadList)
+                            lock (restoreDownloadDict)
                             {
                                 string problem = "S3 restore file \"" + s3ObjectKey.Substring(0, 10) + "****" + "\" [" +
-                                restoreCounter + "/" + (restoreCounter + restoreDownloadList.Count - 1) + "]" + " not downloaded: " + ex.Message;
+                                restoreCounter + "/" + (restoreCounter + restoreDownloadDict.Count - 1) + "]" + " not downloaded: " + ex.Message;
 
                                 if (verboseLogFunc != null) verboseLogFunc(problem);
                                 errorLogFunc(myS3Path + RELATIVE_LOCAL_MYS3_LOG_DIRECTORY_PATH + "Restore.log", problem);
@@ -2006,6 +2021,8 @@ namespace MyS3
 
                     // Give other threads access to queues
                     Thread.Sleep(25);
+
+                    lock (restoreDownloadDict) hasRestoreWork = restoreDownloadDict.Count > 0;
                 }
             }));
         }
