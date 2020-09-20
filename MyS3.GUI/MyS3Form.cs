@@ -31,6 +31,7 @@ namespace MyS3.GUI
         {
             InitializeComponent();
 
+            // Number controls to make unique
             this.controlNameCounter = controlNameCounter;
             this.Name += controlNameCounter;
             foreach (Control control in GetAllControls(this))
@@ -86,6 +87,8 @@ namespace MyS3.GUI
                     ((ListBox)control).Items.Clear();
             }
 
+            // Pause buttons
+            
             Button pauseDownloadsButton = Controls.Find("pauseDownloadsButton" + controlNameCounter, true).FirstOrDefault() as Button;
             pauseDownloadsButton.Text = "Pause downloads";
             pauseDownloadsButton.Click += (sender, args) => myS3.PauseDownloads(!myS3.DownloadsPaused);
@@ -114,7 +117,7 @@ namespace MyS3.GUI
                     try
                     {
                         // MyS3 file info
-                        long numberOfFiles = myS3.NumberOfFiles;
+                        long numberOfFiles = myS3.NumberOfMyS3Files;
                         long totalFileSize = myS3.GetTotalFileSize();
                         if (numberOfFiles != -1 && totalFileSize != -1)
                         {
@@ -530,7 +533,7 @@ namespace MyS3.GUI
                     if (control.Name.StartsWith("downloadsTab"))
                     {
                         string tabText = "Downloads";
-                        if (!myS3.IsComparingFiles && downloadList.Count > 0) tabText += " (" + downloadList.Count + ")";
+                        if (!myS3.IsComparingS3AndMyS3 && downloadList.Count > 0) tabText += " (" + downloadList.Count + ")";
 
                         if (control.Text != tabText) // stop constant flashing
                             control.Text = tabText;
@@ -538,7 +541,7 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("uploadsTab"))
                     {
                         string tabText = "Uploads";
-                        if (!myS3.IsComparingFiles && uploadList.Count > 0) tabText += " (" + uploadList.Count + ")";
+                        if (!myS3.IsComparingS3AndMyS3 && uploadList.Count > 0) tabText += " (" + uploadList.Count + ")";
 
                         if (control.Text != tabText) // stop constant flashing
                             control.Text = tabText;
@@ -546,7 +549,7 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("restoresTab"))
                     {
                         string tabText = "Restores";
-                        if (!myS3.IsComparingFiles && restoreDownloadList.Count > 0) tabText += " (" + restoreDownloadList.Count + ")";
+                        if (!myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0) tabText += " (" + restoreDownloadList.Count + ")";
 
                         if (control.Text != tabText) // stop constant flashing
                             control.Text = tabText;
@@ -555,7 +558,7 @@ namespace MyS3.GUI
                     // Tables - active downloads and uploads and restores
                     else if (control.Name.StartsWith("downloadSpeedLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0;
 
                         if (namedDownloadList.Count > 0)
                         {
@@ -567,7 +570,7 @@ namespace MyS3.GUI
                     }
                     else if (control.Name.StartsWith("downloadFileLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0;
 
                         if (namedDownloadList.Count > 0)
                         {
@@ -592,26 +595,26 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("downloadProgress"))
                     {
                         ProgressBar progressBar = (ProgressBar)control;
-                        progressBar.Visible = !myS3.IsComparingFiles && namedDownloadList.Count > 0;
+                        progressBar.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0;
                         progressBar.Value = (int)Math.Round(myS3.DownloadPercent);
                     }
                     else if (control.Name.StartsWith("downloadSizeLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedDownloadList.Count > 0 && myS3.DownloadSize > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0 && myS3.DownloadSize > 0;
 
                         if (namedDownloadList.Count > 0 && myS3.DownloadSize > 0)
                             control.Text = Tools.GetByteSizeAsText((long)myS3.DownloadSize);
                     }
                     else if (control.Name.StartsWith("downloadPercentLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedDownloadList.Count > 0 && myS3.DownloadPercent > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0 && myS3.DownloadPercent > 0;
 
                         if (namedDownloadList.Count > 0 && myS3.DownloadPercent > 0)
                             control.Text = Math.Round(myS3.DownloadPercent) + " %";
                     }
                     else if (control.Name.StartsWith("uploadSpeedLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && uploadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0;
 
                         if (uploadList.Count > 0)
                         {
@@ -623,7 +626,7 @@ namespace MyS3.GUI
                     }
                     else if (control.Name.StartsWith("uploadFileLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && uploadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0;
 
                         if (uploadList.Count > 0)
                         {
@@ -648,26 +651,26 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("uploadProgress"))
                     {
                         ProgressBar progressBar = (ProgressBar)control;
-                        progressBar.Visible = !myS3.IsComparingFiles && uploadList.Count > 0;
+                        progressBar.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0;
                         progressBar.Value = (int)Math.Round(myS3.UploadPercent);
                     }
                     else if (control.Name.StartsWith("uploadSizeLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && uploadList.Count > 0 && myS3.UploadSize > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0 && myS3.UploadSize > 0;
 
                         if (uploadList.Count > 0 && myS3.UploadSize > 0)
                             control.Text = Tools.GetByteSizeAsText((long)myS3.UploadSize);
                     }
                     else if (control.Name.StartsWith("uploadPercentLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && uploadList.Count > 0 && myS3.UploadPercent > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0 && myS3.UploadPercent > 0;
 
                         if (uploadList.Count > 0 && myS3.UploadPercent > 0)
                             control.Text = Math.Round(myS3.UploadPercent) + " %";
                     }
                     else if (control.Name.StartsWith("restoreDownloadSpeedLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedRestoreDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0;
 
                         if (namedRestoreDownloadList.Count > 0)
                         {
@@ -679,7 +682,7 @@ namespace MyS3.GUI
                     }
                     else if (control.Name.StartsWith("restoreDownloadFileLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedRestoreDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0;
 
                         if (namedRestoreDownloadList.Count > 0)
                         {
@@ -704,19 +707,19 @@ namespace MyS3.GUI
                     else if (control.Name.StartsWith("restoreDownloadProgress"))
                     {
                         ProgressBar progressBar = (ProgressBar)control;
-                        progressBar.Visible = !myS3.IsComparingFiles && namedRestoreDownloadList.Count > 0;
+                        progressBar.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0;
                         progressBar.Value = (int)Math.Round(myS3.RestoreDownloadPercent);
                     }
                     else if (control.Name.StartsWith("restoreDownloadSizeLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadSize > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadSize > 0;
 
                         if (restoreDownloadList.Count > 0 && myS3.RestoreDownloadSize > 0)
                             control.Text = Tools.GetByteSizeAsText((long)myS3.RestoreDownloadSize);
                     }
                     else if (control.Name.StartsWith("restoreDownloadPercentLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadPercent > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadPercent > 0;
 
                         if (namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadPercent > 0)
                             control.Text = Math.Round(myS3.RestoreDownloadPercent) + " %";
@@ -725,7 +728,7 @@ namespace MyS3.GUI
                     // Lists
                     else if (control.Name.StartsWith("downloadsListTitleLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && downloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0;
                     }
                     else if (control.Name.StartsWith("downloadsList"))
                     {
@@ -743,11 +746,11 @@ namespace MyS3.GUI
                         }
                         if (listBox.Items.Count == MAX_LIST_LENGTH) listBox.Items.Add("...");
 
-                        listBox.Visible = !myS3.IsComparingFiles && downloadList.Count > 0;
+                        listBox.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0;
                     }
                     else if (control.Name.StartsWith("uploadsListTitleLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && uploadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0;
                     }
                     else if (control.Name.StartsWith("uploadsList"))
                     {
@@ -765,11 +768,11 @@ namespace MyS3.GUI
                         }
                         if (listBox.Items.Count == MAX_LIST_LENGTH) listBox.Items.Add("...");
 
-                        listBox.Visible = !myS3.IsComparingFiles && uploadList.Count > 0;
+                        listBox.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0;
                     }
                     else if (control.Name.StartsWith("restoreDownloadsListTitleLabel"))
                     {
-                        control.Visible = !myS3.IsComparingFiles && restoreDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0;
                     }
                     else if (control.Name.StartsWith("restoreDownloadsList"))
                     {
@@ -787,7 +790,7 @@ namespace MyS3.GUI
                         }
                         if (listBox.Items.Count == MAX_LIST_LENGTH) listBox.Items.Add("...");
 
-                        listBox.Visible = !myS3.IsComparingFiles && restoreDownloadList.Count > 0;
+                        listBox.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0;
                     }
 
                     // Pausing
@@ -820,18 +823,19 @@ namespace MyS3.GUI
                             control.Text = "Uploads paused";
                             control.ForeColor = Color.Red;
                         }
-                        else if (myS3.IsIndexingFiles)
+                        else if (myS3.IsIndexingMyS3Files)
                         {
-                            control.Text = "Indexing MyS3's files";
+                            control.Text = "Indexing MyS3 files (" + myS3.NumberOfMyS3Files + ")";
                             control.ForeColor = Color.DarkOrange;
                         }
-                        else if (myS3.IsComparingFiles)
+                        else if (myS3.IsIndexingS3Objects)
                         {
-                            if (myS3.ComparisonPercent == 0)
-                                control.Text = "Retrieving S3 object lists";
-                            else
-                                control.Text = "Comparing S3 and MyS3 (" + myS3.ComparisonPercent + " %)";
-
+                            control.Text = "Indexing S3 objects (" + myS3.NumberOfIndexedS3Objects + " %)";
+                            control.ForeColor = Color.DarkOrange;
+                        }
+                        else if (myS3.IsComparingS3AndMyS3)
+                        {
+                            control.Text = "Comparing S3 and MyS3 (" + myS3.ComparisonPercent + " %)";
                             control.ForeColor = Color.DarkOrange;
                         }
                         else if (downloadList.Count > 0 || uploadList.Count > 0)

@@ -308,7 +308,6 @@ namespace MyS3
 
             return await client.GetObjectMetadataAsync(request);
             // Note: GetObjectMetadataResponse does not return local time in LastModified
-            //       All other methods with a LastModified somewhere returns local time
         }
 
         // ---

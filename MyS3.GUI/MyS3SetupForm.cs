@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows.Forms;
 
 using Amazon;
+using System.Text;
 
 namespace MyS3.GUI
 {
@@ -78,6 +79,7 @@ namespace MyS3.GUI
                 bucketBox.BackColor = DEFAULT_CONTROL_BACKGROUND_COLOR;
             }
             else if (bucketBox.TextLength >= 3 && bucketBox.TextLength <= 63 &&                                                         // length
+                     bucketBox.TextLength == Encoding.UTF8.GetByteCount(bucketBox.Text) &&                                              // only ASCII
                     ((bucketBox.Text.First<char>() + "").Any(char.IsLower) || (bucketBox.Text.First<char>() + "").Any(char.IsDigit)) && // first char is lower letter or number
                     ((bucketBox.Text.Last<char>() + "").Any(char.IsLower) || (bucketBox.Text.Last<char>() + "").Any(char.IsDigit)) &&   // last char is lower letter or number
                     !bucketBox.Text.Any(char.IsSymbol) &&                                                                               // no symbols
@@ -251,7 +253,7 @@ namespace MyS3.GUI
         private void changeMyS3PathButton_Click(object sender, EventArgs e)
         {
             FolderBrowserDialog folderBrowser = new FolderBrowserDialog();
-            folderBrowser.Description = "Select or create MyS3 folder";
+            folderBrowser.Description = "Select or create a folder for MyS3";
             folderBrowser.SelectedPath = myS3PathLabel.Text;
             folderBrowser.ShowNewFolderButton = true;
             folderBrowser.ShowDialog();
@@ -398,9 +400,10 @@ namespace MyS3.GUI
                 InUseNow = inUseBox.Checked
             };
 
-            SetupStore.Add(setup);
-            if (editedSetup.Bucket != setup.Bucket)
+            if (editedSetup != null && editedSetup.Bucket != setup.Bucket)
                 SetupStore.Remove(editedSetup.Bucket);
+
+            SetupStore.Add(setup);
 
             Client.MainForm.CreateEditSetupMenuItems();
             Client.MainForm.UseMyS3Setups();

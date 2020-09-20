@@ -133,11 +133,10 @@ namespace MyS3.GUI
 
         public void UseMyS3Setups()
         {
-            if (!Tools.HasInternet()) return;
-
             // Show or hide instructions and MyS3 tabs
             noSetupsLabel.Visible = SetupStore.Entries.Count == 0;
-            mys3Tabs.Visible = SetupStore.Entries.Count > 0;
+
+            if (!Tools.HasInternet()) return;
 
             // ---
 
@@ -153,6 +152,7 @@ namespace MyS3.GUI
             }
             mys3Tabs.TabPages.Clear();
             myS3s.Clear();
+            mys3Tabs.Visible = SetupStore.Entries.Count > 0;
 
             // ---
 
