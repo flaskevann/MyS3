@@ -10,9 +10,13 @@ using Amazon;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
+using Amazon.Runtime;
 
 namespace MyS3
 {
+    /*
+     * All LastModified fields are UTC
+     */
     public class S3Wrapper
     {
         private static string APP_DATA_TEST_DIRECTORY_PATH
@@ -25,7 +29,7 @@ namespace MyS3
             }
         }
 
-        public static readonly long MIN_MULTIPART_SIZE = 5 * (long)Math.Pow(2, 20); // 5 MB
+        public static readonly long MIN_MULTIPART_SIZE = 5 * (long) Math.Pow(2, 20); // 5 MB
                                                                                     // No progress report when lower
 
         public static readonly int PROGRESS_REPORT_PAUSE = 1000;
@@ -99,10 +103,10 @@ namespace MyS3
                     CopyAsync(s3ObjectPath, renamedS3FilePath, null).Wait();
 
                     // 6. Clean up
-                    List<S3ObjectVersion> testFileVersions = GetCompleteObjectVersionsList(s3ObjectPath);
+                    List<S3ObjectVersion> testFileVersions = GetCompleteObjectVersionList(s3ObjectPath);
                     foreach (S3ObjectVersion version in testFileVersions)
                         RemoveAsync(s3ObjectPath, version.VersionId).Wait();
-                    testFileVersions = GetCompleteObjectVersionsList(renamedS3FilePath);
+                    testFileVersions = GetCompleteObjectVersionList(renamedS3FilePath);
                     foreach (S3ObjectVersion version in testFileVersions)
                         RemoveAsync(renamedS3FilePath, version.VersionId).Wait();
                 }
@@ -183,7 +187,7 @@ namespace MyS3
 
         // ---
 
-        public ListVersionsResponse GetObjectVersionsListAsync(string s3ObjectPath, string marker)
+        public ListVersionsResponse GetObjectVersionListAsync(string s3ObjectPath, string marker)
         {
             ListVersionsRequest request = new ListVersionsRequest
             {
@@ -195,14 +199,14 @@ namespace MyS3
             return client.ListVersionsAsync(request).Result;
         }
 
-        public List<S3ObjectVersion> GetCompleteObjectVersionsList(string s3ObjectPath)
+        public List<S3ObjectVersion> GetCompleteObjectVersionList(string s3ObjectPath)
         {
             List<S3ObjectVersion> s3ObjectVersions = new List<S3ObjectVersion>();
 
             string marker = null;
             while (true)
             {
-                ListVersionsResponse listResult = GetObjectVersionsListAsync(s3ObjectPath, marker);
+                ListVersionsResponse listResult = GetObjectVersionListAsync(s3ObjectPath, marker);
                 if (listResult.HttpStatusCode == HttpStatusCode.OK)
                 {
                     s3ObjectVersions.AddRange(listResult.Versions.ToList<S3ObjectVersion>());
@@ -225,26 +229,26 @@ namespace MyS3
 
         public Dictionary<string, DateTime> GetCompleteRemovedObjectList()
         {
-            List<S3ObjectVersion> s3ObjectVersions = GetCompleteObjectVersionsList(null);
-
             Dictionary<string, DateTime> removedS3Objects = new Dictionary<string, DateTime>(); // key ==> datetime
+
+            List<S3ObjectVersion> s3ObjectVersions = GetCompleteObjectVersionList(null);
             foreach (S3ObjectVersion s3ObjectVersion in s3ObjectVersions)
             {
                 if (s3ObjectVersion.IsDeleteMarker)
                 {
                     if (removedS3Objects.ContainsKey(s3ObjectVersion.Key))
                     {
-                        if (removedS3Objects[s3ObjectVersion.Key] < s3ObjectVersion.LastModified)
-                            removedS3Objects[s3ObjectVersion.Key] = s3ObjectVersion.LastModified;
+                        if (removedS3Objects[s3ObjectVersion.Key] < s3ObjectVersion.LastModified.ToUniversalTime())
+                            removedS3Objects[s3ObjectVersion.Key] = s3ObjectVersion.LastModified.ToUniversalTime();
                     }
                     else
                     {
-                        removedS3Objects.Add(s3ObjectVersion.Key, s3ObjectVersion.LastModified);
+                        removedS3Objects.Add(s3ObjectVersion.Key, s3ObjectVersion.LastModified.ToUniversalTime());
                     }
                 }
                 else
                 {
-                    if (removedS3Objects.ContainsKey(s3ObjectVersion.Key) && removedS3Objects[s3ObjectVersion.Key] < s3ObjectVersion.LastModified)
+                    if (removedS3Objects.ContainsKey(s3ObjectVersion.Key) && removedS3Objects[s3ObjectVersion.Key] < s3ObjectVersion.LastModified.ToUniversalTime())
                         removedS3Objects.Remove(s3ObjectVersion.Key);
                 }
             }
@@ -255,7 +259,7 @@ namespace MyS3
         public int CleanUpRemovedObjects(DateTime timeRemoved)
         {
             // Get lists
-            List<S3ObjectVersion> s3ObjectVersions = GetCompleteObjectVersionsList(null);
+            List<S3ObjectVersion> s3ObjectVersions = GetCompleteObjectVersionList(null);
             Dictionary<string, DateTime> removedS3Objects = GetCompleteRemovedObjectList();
 
             // Get oldest versions
@@ -313,7 +317,7 @@ namespace MyS3
         // ---
 
         public async Task UploadAsync(string localFilePath,
-            string s3ObjectPath, string shownFilePath,
+            string s3ObjectPath, string progressReportShownFilePath,
             MetadataCollection metadata,
             CancellationToken cancelToken,
             Action<string, long, long, MyS3Runner.TransferType> progressEventHandler)
@@ -329,7 +333,7 @@ namespace MyS3
                 {
                     BucketName = bucket,
                     Key = s3ObjectPath,
-                    FilePath = localFilePath
+                    FilePath = localFilePath,
                 };
                 if (metadata != null)
                     foreach (string key in metadata.Keys)
@@ -378,7 +382,7 @@ namespace MyS3
                                 transferredBytes += args.IncrementTransferred;
                                 if (DateTime.Now > timeNextProgressReport)
                                 {
-                                    progressEventHandler(shownFilePath, transferredBytes, uploadFileInfo.Length, MyS3Runner.TransferType.UPLOAD);
+                                    progressEventHandler(progressReportShownFilePath, transferredBytes, uploadFileInfo.Length, MyS3Runner.TransferType.UPLOAD);
                                     timeNextProgressReport = DateTime.Now.AddMilliseconds(PROGRESS_REPORT_PAUSE);
                                 }
                             };
@@ -389,7 +393,9 @@ namespace MyS3
                         UploadPartResponse uploadPartResponse = await client.UploadPartAsync(uploadRequest, cancelToken);
                         uploadPartResponses.Add(uploadPartResponse);
 
-//                        Thread.Sleep(1000);
+                        // Abort
+                        if (transferredBytes > uploadFileInfo.Length)
+                            throw new Exception("Multipart upload failed to complete.");
                     }
 
                     // Combine parts
@@ -436,7 +442,7 @@ namespace MyS3
 
         public async Task<MetadataCollection> DownloadAsync(string localFilePath,
             string s3ObjectPath, string version,
-            string shownFilePath,
+            string progressReportShownFilePath,
             CancellationToken cancelToken,
             Action<string, long, long, MyS3Runner.TransferType> progressEventHandler, MyS3Runner.TransferType transferType)
         {
@@ -472,7 +478,7 @@ namespace MyS3
                         {
                             if (DateTime.Now > timeNextProgressReport)
                             {
-                                progressEventHandler(shownFilePath, downloadedBytes, getResult.Headers.ContentLength, transferType);
+                                progressEventHandler(progressReportShownFilePath, downloadedBytes, getResult.Headers.ContentLength, transferType);
                                 timeNextProgressReport = DateTime.Now.AddMilliseconds(PROGRESS_REPORT_PAUSE);
                             }
                         }
@@ -497,20 +503,20 @@ namespace MyS3
             await client.DeleteObjectAsync(request);
         }
 
-        public async Task RemoveAsync(Dictionary<string, List<string>> s3Objects)
+        public async Task RemoveAsync(Dictionary<string, List<string>> s3ObjectVersionDict)
         {
             DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest
             {
                 BucketName = bucket,
             };
 
-            foreach (KeyValuePair<string, List<string>> s3Object in s3Objects)
+            foreach (KeyValuePair<string, List<string>> s3ObjectVersionKVP in s3ObjectVersionDict)
             {
-                if (s3Object.Value == null)
-                    deleteRequest.Objects.Add(new KeyVersion() { Key = s3Object.Key });
+                if (s3ObjectVersionKVP.Value == null)
+                    deleteRequest.Objects.Add(new KeyVersion() { Key = s3ObjectVersionKVP.Key });
                 else
-                    foreach (string versionId in s3Object.Value)
-                        deleteRequest.Objects.Add(new KeyVersion() { Key = s3Object.Key, VersionId = versionId });
+                    foreach (string versionId in s3ObjectVersionKVP.Value)
+                        deleteRequest.Objects.Add(new KeyVersion() { Key = s3ObjectVersionKVP.Key, VersionId = versionId });
 
                 if (deleteRequest.Objects.Count == 1000)
                 {

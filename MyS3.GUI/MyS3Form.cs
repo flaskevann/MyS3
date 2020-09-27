@@ -13,9 +13,10 @@ namespace MyS3.GUI
 {
     public partial class MyS3Form : UserControl
     {
-        private static readonly int DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH = 20;
+        private static readonly int ACTIVE_TRANSFER_FILE_PATH_LABEL_MAX_TEXT_LENGTH = 50;
+        private static readonly int LIST_FILE_PATH_MAX_TEXT_LENGTH = 90;
 
-        private static readonly int MAX_LIST_LENGTH = 4;
+        private static readonly int MAX_TRANSFER_LIST_LENGTH = 4;
 
         private readonly int controlNameCounter;
 
@@ -68,7 +69,7 @@ namespace MyS3.GUI
                 if (control.Name.StartsWith("mys3GroupBox"))
                     control.Text = "Monitoring '" + myS3.MyS3Path;
                 else if (control.Name.StartsWith("overviewTabs"))
-                    ((TabControl)control).SelectedIndex = 0; // Selects Files tab
+                    ((TabControl)control).SelectedIndex = 0; // Selects and shows Files tab
                 else if (control.Name.StartsWith("filesTab"))
                     control.Text = "Files";
                 else if (control.Name.StartsWith("uploadsTab"))
@@ -87,11 +88,11 @@ namespace MyS3.GUI
                     ((ListBox)control).Items.Clear();
             }
 
-            // Pause buttons
+            // Buttons
             
             Button pauseDownloadsButton = Controls.Find("pauseDownloadsButton" + controlNameCounter, true).FirstOrDefault() as Button;
             pauseDownloadsButton.Text = "Pause downloads";
-            pauseDownloadsButton.Click += (sender, args) => myS3.PauseDownloads(!myS3.DownloadsPaused);
+            pauseDownloadsButton.Click += (sender, args) => myS3.PauseDownloadsAndRestores(!myS3.DownloadsPaused);
 
             Button pauseUploadsButton = Controls.Find("pauseUploadsButton" + controlNameCounter, true).FirstOrDefault() as Button;
             pauseUploadsButton.Text = "Pause uploads";
@@ -102,7 +103,7 @@ namespace MyS3.GUI
         {
             StartUpdatingSizeUsedControl(); // show number of indexed files and size
             StartUpdatingFilesControl(); // refresh file tree and view when change
-            StartUpdatingTransferControls(); // update controls for downloads, uploads and restores
+            StartUpdatingTransferControlsAndButtonsAndStatus(); // update controls for downloads, uploads and restores
         }
 
         private void StartUpdatingSizeUsedControl()
@@ -118,7 +119,7 @@ namespace MyS3.GUI
                     {
                         // MyS3 file info
                         long numberOfFiles = myS3.NumberOfMyS3Files;
-                        long totalFileSize = myS3.GetTotalFileSize();
+                        long totalFileSize = myS3.GetSumMyS3FilesSize();
                         if (numberOfFiles != -1 && totalFileSize != -1)
                         {
                             // Update
@@ -131,7 +132,7 @@ namespace MyS3.GUI
                             }
                         }
                     }
-                    catch (Exception) { } // Stops disposed exceptions I can't get rid off
+                    catch (Exception) { } // Catches disposed exceptions I can't get rid off
 
                     Thread.Sleep(250);
                 }
@@ -164,21 +165,16 @@ namespace MyS3.GUI
         {
             ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
             {
-                long numberOfFilesLastChange = 0;
-                long totalFileSizeLastChange = 0;
+                long numberOfFilesLastChange = -1;
+                long totalFileSizeLastChange = -1;
 
                 while (!myS3.Stopping)
                 {
                     try
                     {
                         // File info
-                        long numberOfFiles = 0;
-                        long totalFileSize = 0;
-                        foreach (string offlineFilePath in Directory.GetFiles(myS3.MyS3Path, "*", SearchOption.AllDirectories))
-                        {
-                            numberOfFiles++;
-                            totalFileSize += (new FileInfo(offlineFilePath)).Length;
-                        }
+                        long numberOfFiles = myS3.NumberOfMyS3Files;
+                        long totalFileSize = myS3.GetSumMyS3FilesSize();
 
                         // Update
                         if (numberOfFiles != numberOfFilesLastChange || totalFileSize != totalFileSizeLastChange)
@@ -189,7 +185,7 @@ namespace MyS3.GUI
                             UpdateFileViewControl();
                         }
                     }
-                    catch (Exception) { } // Stops disposed exceptions I can't get rid off
+                    catch (Exception) { } // Catches disposed exceptions I can't get rid off
 
                     Thread.Sleep(1000);
                 }
@@ -211,7 +207,7 @@ namespace MyS3.GUI
                 DirectoryInfo directory = new DirectoryInfo(myS3.MyS3Path);
                 if (directory.Exists)
                 {
-                    // Parent node = MyS3
+                    // Parent node = MyS3 directory
                     string imageKey = (myS3.MyS3Path + MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH) == (directory.FullName + @"\") ? "redfolder" : "folder";
                     TreeNode rootNode = new TreeNode(directory.Name)
                     {
@@ -266,49 +262,63 @@ namespace MyS3.GUI
 
         TreeNode selectedNode;
 
+        ListViewColumnSorter filesViewColumnSorter = new ListViewColumnSorter()
+        {
+            Order = SortOrder.Descending,
+            SortColumn = 1
+        };
+
         private void filesTree_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
         {
             selectedNode = e.Node;
             DirectoryInfo nodeDirectoryInfo = (DirectoryInfo)e.Node.Tag;
 
             ListView filesView = Controls.Find("filesView" + controlNameCounter, true).FirstOrDefault() as ListView;
+            filesView.ListViewItemSorter = filesViewColumnSorter;
             filesView.Items.Clear();
 
-            // List directories
-            foreach (DirectoryInfo directory in nodeDirectoryInfo.GetDirectories())
+            try
             {
-                // Ignore folders
-                if (!(myS3.MyS3Path + MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH).StartsWith(directory.FullName) &&
-                    MyS3Runner.IGNORED_DIRECTORIES_NAMES.Contains(
-                        directory.FullName.Replace(myS3.MyS3Path, "").Split(new char[] { @"\"[0] })[0])) continue;
-
-                int imageIndex = (myS3.MyS3Path + MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH) == (directory.FullName + @"\") ? 2 : 0;
-                ListViewItem item = new ListViewItem(directory.Name, imageIndex);
-                filesView.Items.Add(item);
-
-                ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[]
+                // List directories
+                foreach (DirectoryInfo directory in nodeDirectoryInfo.GetDirectories())
                 {
+                    // Ignore folders
+                    if (!(myS3.MyS3Path + MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH).StartsWith(directory.FullName) &&
+                        MyS3Runner.IGNORED_DIRECTORIES_NAMES.Contains(
+                            directory.FullName.Replace(myS3.MyS3Path, "").Split(new char[] { @"\"[0] })[0])) continue;
+
+                    int imageIndex = (myS3.MyS3Path + MyS3Runner.RELATIVE_LOCAL_MYS3_RESTORE_DIRECTORY_PATH) == (directory.FullName + @"\") ? 2 : 0;
+                    ListViewItem item = new ListViewItem(directory.Name, imageIndex);
+                    filesView.Items.Add(item);
+
+                    ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[]
+                    {
                     new ListViewItem.ListViewSubItem(item, "Folder"),
                     new ListViewItem.ListViewSubItem(item, directory.LastWriteTime.ToShortDateString() + " " + directory.LastWriteTime.ToLongTimeString())
-                };
-                item.SubItems.AddRange(subItems);
-            }
+                    };
+                    item.SubItems.AddRange(subItems);
+                }
 
-            // List files
-            foreach (FileInfo file in nodeDirectoryInfo.GetFiles())
-            {
-                // Ignore file extensions
-                if (MyS3Runner.IGNORED_FILE_EXTENSIONS.Contains(file.Extension)) continue;
-
-                ListViewItem item = new ListViewItem(file.Name, 1);
-                filesView.Items.Add(item);
-
-                ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[]
+                // List files
+                foreach (FileInfo file in nodeDirectoryInfo.GetFiles())
                 {
+                    // Ignore file extensions
+                    if (MyS3Runner.IGNORED_FILE_EXTENSIONS.Contains(file.Extension)) continue;
+
+                    ListViewItem item = new ListViewItem(file.Name, 1);
+                    filesView.Items.Add(item);
+
+                    ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[]
+                    {
                     new ListViewItem.ListViewSubItem(item, "File"),
                     new ListViewItem.ListViewSubItem(item, file.LastWriteTime.ToShortDateString() + " " + file.LastWriteTime.ToLongTimeString())
-                };
-                item.SubItems.AddRange(subItems);
+                    };
+                    item.SubItems.AddRange(subItems);
+                }
+            }
+            catch (Exception)
+            {
+                UpdateFileViewControl();
             }
         }
 
@@ -363,21 +373,21 @@ namespace MyS3.GUI
                         {
                             Text = "Last hour",
                         };
-                        restoreRemovedFilesLastHourMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.Now.AddHours(-1), true);
+                        restoreRemovedFilesLastHourMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.UtcNow.AddHours(-1), true);
                         restoreRemovedFilesMenuItem.DropDownItems.Add(restoreRemovedFilesLastHourMenuItem);
 
                         ToolStripMenuItem restoreRemovedFilesLast3HoursMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last 3 hours"
                         };
-                        restoreRemovedFilesLast3HoursMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.Now.AddHours(-3), true);
+                        restoreRemovedFilesLast3HoursMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.UtcNow.AddHours(-3), true);
                         restoreRemovedFilesMenuItem.DropDownItems.Add(restoreRemovedFilesLast3HoursMenuItem);
 
                         ToolStripMenuItem restoreRemovedFilesLast24HoursMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last 24 hours"
                         };
-                        restoreRemovedFilesLast24HoursMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.Now.AddDays(-1), true);
+                        restoreRemovedFilesLast24HoursMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.UtcNow.AddDays(-1), true);
                         restoreRemovedFilesMenuItem.DropDownItems.Add(restoreRemovedFilesLast24HoursMenuItem);
 
                         restoreRemovedFilesMenuItem.DropDownItems.Add(new ToolStripSeparator());
@@ -386,28 +396,28 @@ namespace MyS3.GUI
                         {
                             Text = "Last 2 days"
                         };
-                        restoreRemovedFilesLast2DaysMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.Now.AddDays(-2), true);
+                        restoreRemovedFilesLast2DaysMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.UtcNow.AddDays(-2), true);
                         restoreRemovedFilesMenuItem.DropDownItems.Add(restoreRemovedFilesLast2DaysMenuItem);
 
                         ToolStripMenuItem restoreRemovedFilesLastWeekMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last week"
                         };
-                        restoreRemovedFilesLastWeekMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.Now.AddDays(-7), true);
+                        restoreRemovedFilesLastWeekMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.UtcNow.AddDays(-7), true);
                         restoreRemovedFilesMenuItem.DropDownItems.Add(restoreRemovedFilesLastWeekMenuItem);
 
                         ToolStripMenuItem recoverLastMonthMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last month"
                         };
-                        recoverLastMonthMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.Now.AddMonths(-1), true);
+                        recoverLastMonthMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.UtcNow.AddMonths(-1), true);
                         restoreRemovedFilesMenuItem.DropDownItems.Add(recoverLastMonthMenuItem);
 
                         ToolStripMenuItem recoverLastSixMonthsMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last six months"
                         };
-                        recoverLastSixMonthsMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.Now.AddMonths(-6), true);
+                        recoverLastSixMonthsMenuItem.Click += (sender, args) => myS3.RestoreFiles(DateTime.UtcNow.AddMonths(-6), true);
                         restoreRemovedFilesMenuItem.DropDownItems.Add(recoverLastSixMonthsMenuItem);
 
                         //
@@ -421,21 +431,21 @@ namespace MyS3.GUI
                         {
                             Text = "Last hour",
                         };
-                        restoreFileVersionsLastHourMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.Now.AddHours(-1), false); };
+                        restoreFileVersionsLastHourMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.UtcNow.AddHours(-1), false); };
                         restoreFileVersionsMenuItem.DropDownItems.Add(restoreFileVersionsLastHourMenuItem);
 
                         ToolStripMenuItem restoreFileVersionsLast3HoursMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last 3 hours"
                         };
-                        restoreFileVersionsLast3HoursMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.Now.AddHours(-3), false); };
+                        restoreFileVersionsLast3HoursMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.UtcNow.AddHours(-3), false); };
                         restoreFileVersionsMenuItem.DropDownItems.Add(restoreFileVersionsLast3HoursMenuItem);
 
                         ToolStripMenuItem restoreFileVersionsLast24HoursMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last 24 hours"
                         };
-                        restoreFileVersionsLast24HoursMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.Now.AddDays(-1), false); };
+                        restoreFileVersionsLast24HoursMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.UtcNow.AddDays(-1), false); };
                         restoreFileVersionsMenuItem.DropDownItems.Add(restoreFileVersionsLast24HoursMenuItem);
 
                         restoreFileVersionsMenuItem.DropDownItems.Add(new ToolStripSeparator());
@@ -444,28 +454,28 @@ namespace MyS3.GUI
                         {
                             Text = "Last 2 days"
                         };
-                        restoreFileVersionsLast2DaysMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.Now.AddDays(-2), false); };
+                        restoreFileVersionsLast2DaysMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.UtcNow.AddDays(-2), false); };
                         restoreFileVersionsMenuItem.DropDownItems.Add(restoreFileVersionsLast2DaysMenuItem);
 
                         ToolStripMenuItem restoreFileVersionsLastWeekMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last week"
                         };
-                        restoreFileVersionsLastWeekMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.Now.AddDays(-7), false); };
+                        restoreFileVersionsLastWeekMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.UtcNow.AddDays(-7), false); };
                         restoreFileVersionsMenuItem.DropDownItems.Add(restoreFileVersionsLastWeekMenuItem);
 
                         ToolStripMenuItem restoreFileVersionsLastMonthMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last month"
                         };
-                        restoreFileVersionsLastMonthMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.Now.AddMonths(-1), false); };
+                        restoreFileVersionsLastMonthMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.UtcNow.AddMonths(-1), false); };
                         restoreFileVersionsMenuItem.DropDownItems.Add(recoverLastMonthMenuItem);
 
                         ToolStripMenuItem restoreFileVersionsLastSixMonthMenuItem = new ToolStripMenuItem
                         {
                             Text = "Last six months"
                         };
-                        restoreFileVersionsLastSixMonthMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.Now.AddMonths(-6), false); };
+                        restoreFileVersionsLastSixMonthMenuItem.Click += (sender, args) => { OpenRestoreDirectory(); myS3.RestoreFiles(DateTime.UtcNow.AddMonths(-6), false); };
                         restoreFileVersionsMenuItem.DropDownItems.Add(restoreFileVersionsLastSixMonthMenuItem);
 
                         //
@@ -474,6 +484,32 @@ namespace MyS3.GUI
                     }
                 }
             }
+        }
+
+        private void filesView_ColumnClick(object sender, ColumnClickEventArgs e)
+        {
+            if (e.Column == filesViewColumnSorter.SortColumn)
+            {
+                // Reverse the current sort direction for this column.
+                if (filesViewColumnSorter.Order == SortOrder.Ascending)
+                {
+                    filesViewColumnSorter.Order = SortOrder.Descending;
+                }
+                else
+                {
+                    filesViewColumnSorter.Order = SortOrder.Ascending;
+                }
+            }
+            else
+            {
+                // Set the column number that is to be sorted; default to ascending.
+                filesViewColumnSorter.SortColumn = e.Column;
+                filesViewColumnSorter.Order = SortOrder.Ascending;
+            }
+
+            // Perform the sort with these new sort options.
+            ListView filesView = Controls.Find("filesView" + controlNameCounter, true).FirstOrDefault() as ListView;
+            filesView.Sort();
         }
 
         private void filesView_DoubleClick(object sender, EventArgs e)
@@ -493,36 +529,55 @@ namespace MyS3.GUI
 
         // ---
 
-        private void StartUpdatingTransferControls()
+        private static string FormatFilePath(string filePath, int MAX_LENGTH)
+        {
+            string directory = Path.GetDirectoryName(filePath).Replace(@"\", @" \ ");
+            string filename = Path.GetFileNameWithoutExtension(filePath);
+            string fileExtension = Path.GetExtension(filePath);
+
+            string text = directory + @" \ " + filename + fileExtension;
+
+            if (text.Length > MAX_LENGTH && directory.Length > MAX_LENGTH * 1/3)
+            {
+                directory = directory.Substring(0, MAX_LENGTH * 1 / 3) + @"...";
+                text = directory + @" \ " + filename + fileExtension;
+            }
+
+            if (text.Length > MAX_LENGTH && filename.Length + 1 + fileExtension.Length > MAX_LENGTH * 2 / 3)
+            {
+                filename = filename.Substring(0, MAX_LENGTH * 2 / 3 - fileExtension.Length - 1) + "...";
+                text = directory + @" \ " + filename + fileExtension;
+            }
+
+            return text;
+        }
+
+        private void StartUpdatingTransferControlsAndButtonsAndStatus()
         {
             ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
             {
                 while (!myS3.Stopping)
                 {
-                    try { UpdateTransferControls(); } catch (Exception) { } // Stops disposed exceptions I can't get rid off
+                    try { UpdateTransferControlsAndButtonsAndStatus(); } catch (Exception) { } // Catches disposed exceptions I can't get rid off
 
                     Thread.Sleep(250);
                 }
             }));
         }
 
-        private void UpdateTransferControls()
+        private void UpdateTransferControlsAndButtonsAndStatus()
         {
             if (this.InvokeRequired)
             {
-                this.Invoke(new NoParametersDelegate(UpdateTransferControls));
+                this.Invoke(new NoParametersDelegate(UpdateTransferControlsAndButtonsAndStatus));
             }
             else
             {
                 // Get lists
                 ImmutableList<string> downloadList = myS3.DownloadList;
-                ImmutableList<string> namedDownloadList = myS3.NamedDownloadList;
                 ImmutableList<string> uploadList = myS3.UploadList;
                 ImmutableList<string> restoreDownloadList = myS3.RestoreDownloadList;
-                ImmutableList<string> namedRestoreDownloadList = myS3.NamedRestoreDownloadList;
-                if (downloadList == null || namedDownloadList == null || 
-                    uploadList == null ||
-                    restoreDownloadList == null || namedRestoreDownloadList == null) return;
+                if (downloadList == null || uploadList == null || restoreDownloadList == null) return;
 
                 // ---
 
@@ -558,9 +613,9 @@ namespace MyS3.GUI
                     // Tables - active downloads and uploads and restores
                     else if (control.Name.StartsWith("downloadSpeedLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0;
 
-                        if (namedDownloadList.Count > 0)
+                        if (downloadList.Count > 0)
                         {
                             if (myS3.DownloadSpeed > 0)
                                 control.Text = "Last average download speed: " + Tools.GetByteSizeAsText((long)myS3.DownloadSpeed) + "/s";
@@ -570,46 +625,29 @@ namespace MyS3.GUI
                     }
                     else if (control.Name.StartsWith("downloadFileLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0;
 
-                        if (namedDownloadList.Count > 0)
-                        {
-                            string labelText = "";
-
-                            string downloadDirectory = Path.GetDirectoryName(namedDownloadList[0]);
-                            string downloadFile = Path.GetFileNameWithoutExtension(namedDownloadList[0]);
-                            string downloadFileExtension = Path.GetExtension(namedDownloadList[0]);
-
-                            if (downloadDirectory.Length > DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH)
-                                downloadDirectory = downloadDirectory.Substring(0, DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH) + @"....";
-                            if (downloadFile.Length > DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH)
-                                downloadFile = downloadFile.Substring(0, DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH) + "...";
-                            downloadFile += downloadFileExtension;
-
-                            labelText = downloadDirectory + @"\" + downloadFile;
-                            if (labelText.StartsWith(@"\")) labelText = labelText.Substring(1);
-
-                            control.Text = labelText;
-                        }
+                        if (downloadList.Count > 0)
+                            control.Text = FormatFilePath(downloadList[0], ACTIVE_TRANSFER_FILE_PATH_LABEL_MAX_TEXT_LENGTH);
                     }
                     else if (control.Name.StartsWith("downloadProgress"))
                     {
                         ProgressBar progressBar = (ProgressBar)control;
-                        progressBar.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0;
+                        progressBar.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0;
                         progressBar.Value = (int)Math.Round(myS3.DownloadPercent);
                     }
                     else if (control.Name.StartsWith("downloadSizeLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0 && myS3.DownloadSize > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0 && myS3.DownloadSize > 0;
 
-                        if (namedDownloadList.Count > 0 && myS3.DownloadSize > 0)
+                        if (downloadList.Count > 0 && myS3.DownloadSize > 0)
                             control.Text = Tools.GetByteSizeAsText((long)myS3.DownloadSize);
                     }
                     else if (control.Name.StartsWith("downloadPercentLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedDownloadList.Count > 0 && myS3.DownloadPercent > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0 && myS3.DownloadPercent > 0;
 
-                        if (namedDownloadList.Count > 0 && myS3.DownloadPercent > 0)
+                        if (downloadList.Count > 0 && myS3.DownloadPercent > 0)
                             control.Text = Math.Round(myS3.DownloadPercent) + " %";
                     }
                     else if (control.Name.StartsWith("uploadSpeedLabel"))
@@ -629,24 +667,7 @@ namespace MyS3.GUI
                         control.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0;
 
                         if (uploadList.Count > 0)
-                        {
-                            string labelText = "";
-
-                            string uploadDirectory = Path.GetDirectoryName(uploadList[0]);
-                            string uploadFile = Path.GetFileNameWithoutExtension(uploadList[0]);
-                            string uploadFileExtension = Path.GetExtension(uploadList[0]);
-
-                            if (uploadDirectory.Length > DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH)
-                                uploadDirectory = uploadDirectory.Substring(0, DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH) + "....";
-                            if (uploadFile.Length > DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH)
-                                uploadFile = uploadFile.Substring(0, DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH) + "...";
-                            uploadFile += uploadFileExtension;
-
-                            labelText = uploadDirectory + @"\" + uploadFile;
-                            if (labelText.StartsWith(@"\")) labelText = labelText.Substring(1);
-
-                            control.Text = labelText;
-                        }
+                            control.Text = FormatFilePath(uploadList[0], ACTIVE_TRANSFER_FILE_PATH_LABEL_MAX_TEXT_LENGTH);
                     }
                     else if (control.Name.StartsWith("uploadProgress"))
                     {
@@ -670,9 +691,9 @@ namespace MyS3.GUI
                     }
                     else if (control.Name.StartsWith("restoreDownloadSpeedLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0;
 
-                        if (namedRestoreDownloadList.Count > 0)
+                        if (restoreDownloadList.Count > 0)
                         {
                             if (myS3.RestoreDownloadSpeed > 0)
                                 control.Text = "Last average download speed: " + Tools.GetByteSizeAsText((long)myS3.RestoreDownloadSpeed) + "/s";
@@ -682,46 +703,29 @@ namespace MyS3.GUI
                     }
                     else if (control.Name.StartsWith("restoreDownloadFileLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0;
 
-                        if (namedRestoreDownloadList.Count > 0)
-                        {
-                            string labelText = "";
-
-                            string restoreDownloadDirectory = Path.GetDirectoryName(namedRestoreDownloadList[0]);
-                            string restoreDownloadFile = Path.GetFileNameWithoutExtension(namedRestoreDownloadList[0]);
-                            string restoreDownloadFileExtension = Path.GetExtension(namedRestoreDownloadList[0]);
-
-                            if (restoreDownloadDirectory.Length > DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH)
-                                restoreDownloadDirectory = restoreDownloadDirectory.Substring(0, DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH) + @"....";
-                            if (restoreDownloadFile.Length > DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH)
-                                restoreDownloadFile = restoreDownloadFile.Substring(0, DOWNLOAD_AND_UPLOAD_FILE_MAX_TEXT_LENGTH) + "...";
-                            restoreDownloadFile += restoreDownloadFileExtension;
-
-                            labelText = restoreDownloadDirectory + @"\" + restoreDownloadFile;
-                            if (labelText.StartsWith(@"\")) labelText = labelText.Substring(1);
-
-                            control.Text = labelText;
-                        }
+                        if (restoreDownloadList.Count > 0)
+                            control.Text = FormatFilePath(restoreDownloadList[0], ACTIVE_TRANSFER_FILE_PATH_LABEL_MAX_TEXT_LENGTH);
                     }
                     else if (control.Name.StartsWith("restoreDownloadProgress"))
                     {
                         ProgressBar progressBar = (ProgressBar)control;
-                        progressBar.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0;
+                        progressBar.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0;
                         progressBar.Value = (int)Math.Round(myS3.RestoreDownloadPercent);
                     }
                     else if (control.Name.StartsWith("restoreDownloadSizeLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadSize > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0 && myS3.RestoreDownloadSize > 0;
 
                         if (restoreDownloadList.Count > 0 && myS3.RestoreDownloadSize > 0)
                             control.Text = Tools.GetByteSizeAsText((long)myS3.RestoreDownloadSize);
                     }
                     else if (control.Name.StartsWith("restoreDownloadPercentLabel"))
                     {
-                        control.Visible = !myS3.IsComparingS3AndMyS3 && namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadPercent > 0;
+                        control.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0 && myS3.RestoreDownloadPercent > 0;
 
-                        if (namedRestoreDownloadList.Count > 0 && myS3.RestoreDownloadPercent > 0)
+                        if (restoreDownloadList.Count > 0 && myS3.RestoreDownloadPercent > 0)
                             control.Text = Math.Round(myS3.RestoreDownloadPercent) + " %";
                     }
 
@@ -735,16 +739,16 @@ namespace MyS3.GUI
                         ListBox listBox = (ListBox)control;
                         while (listBox.Items.Count > downloadList.Count)
                             listBox.Items.RemoveAt(listBox.Items.Count - 1);
-                        for (int s = 0; s < downloadList.Count && s < MAX_LIST_LENGTH; s++)
+                        for (int s = 0; s < downloadList.Count && s < MAX_TRANSFER_LIST_LENGTH; s++)
                         {
-                            string path = downloadList[s];
+                            string path = FormatFilePath(downloadList[s], LIST_FILE_PATH_MAX_TEXT_LENGTH);
 
                             if (listBox.Items.Count > s)
                                 listBox.Items[s] = path;
                             else
                                 listBox.Items.Add(path);
                         }
-                        if (listBox.Items.Count == MAX_LIST_LENGTH) listBox.Items.Add("...");
+                        if (listBox.Items.Count == MAX_TRANSFER_LIST_LENGTH) listBox.Items.Add("...");
 
                         listBox.Visible = !myS3.IsComparingS3AndMyS3 && downloadList.Count > 0;
                     }
@@ -757,16 +761,16 @@ namespace MyS3.GUI
                         ListBox listBox = (ListBox)control;
                         while (listBox.Items.Count > uploadList.Count)
                             listBox.Items.RemoveAt(listBox.Items.Count - 1);
-                        for (int s = 0; s < uploadList.Count && s < MAX_LIST_LENGTH; s++)
+                        for (int s = 0; s < uploadList.Count && s < MAX_TRANSFER_LIST_LENGTH; s++)
                         {
-                            string path = uploadList[s];
+                            string path = FormatFilePath(uploadList[s], LIST_FILE_PATH_MAX_TEXT_LENGTH);
 
                             if (listBox.Items.Count > s)
                                 listBox.Items[s] = path;
                             else
                                 listBox.Items.Add(path);
                         }
-                        if (listBox.Items.Count == MAX_LIST_LENGTH) listBox.Items.Add("...");
+                        if (listBox.Items.Count == MAX_TRANSFER_LIST_LENGTH) listBox.Items.Add("...");
 
                         listBox.Visible = !myS3.IsComparingS3AndMyS3 && uploadList.Count > 0;
                     }
@@ -779,16 +783,16 @@ namespace MyS3.GUI
                         ListBox listBox = (ListBox)control;
                         while (listBox.Items.Count > restoreDownloadList.Count)
                             listBox.Items.RemoveAt(listBox.Items.Count - 1);
-                        for (int s = 0; s < restoreDownloadList.Count && s < MAX_LIST_LENGTH; s++)
+                        for (int s = 0; s < restoreDownloadList.Count && s < MAX_TRANSFER_LIST_LENGTH; s++)
                         {
-                            string path = restoreDownloadList[s];
+                            string path = FormatFilePath(restoreDownloadList[s], LIST_FILE_PATH_MAX_TEXT_LENGTH);
 
                             if (listBox.Items.Count > s)
                                 listBox.Items[s] = path;
                             else
                                 listBox.Items.Add(path);
                         }
-                        if (listBox.Items.Count == MAX_LIST_LENGTH) listBox.Items.Add("...");
+                        if (listBox.Items.Count == MAX_TRANSFER_LIST_LENGTH) listBox.Items.Add("...");
 
                         listBox.Visible = !myS3.IsComparingS3AndMyS3 && restoreDownloadList.Count > 0;
                     }
@@ -804,7 +808,7 @@ namespace MyS3.GUI
                     }
 
                     // Status
-                    else if (control.Name.StartsWith("pauseLabel"))
+                    else if (control.Name.StartsWith("statusLabel"))
                     {
                         if (myS3.DownloadsPaused && myS3.UploadsPaused)
                         {
@@ -823,19 +827,14 @@ namespace MyS3.GUI
                             control.Text = "Uploads paused";
                             control.ForeColor = Color.Red;
                         }
-                        else if (myS3.IsIndexingMyS3Files)
+                        else if (myS3.IsIndexingMyS3Files || myS3.IsIndexingS3Objects)
                         {
-                            control.Text = "Indexing MyS3 files (" + myS3.NumberOfMyS3Files + ")";
-                            control.ForeColor = Color.DarkOrange;
-                        }
-                        else if (myS3.IsIndexingS3Objects)
-                        {
-                            control.Text = "Indexing S3 objects (" + myS3.NumberOfIndexedS3Objects + " %)";
+                            control.Text = "Indexing";
                             control.ForeColor = Color.DarkOrange;
                         }
                         else if (myS3.IsComparingS3AndMyS3)
                         {
-                            control.Text = "Comparing S3 and MyS3 (" + myS3.ComparisonPercent + " %)";
+                            control.Text = "Comparing S3 and MyS3";
                             control.ForeColor = Color.DarkOrange;
                         }
                         else if (downloadList.Count > 0 || uploadList.Count > 0)

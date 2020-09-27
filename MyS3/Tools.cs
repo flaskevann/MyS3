@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net;
+using System.Text;
 using System.Runtime.InteropServices;
 
 using EncryptionAndHashingLibrary;
@@ -49,7 +50,7 @@ namespace MyS3
 
                 return true;
             }
-            catch (Exception) {}
+            catch (Exception) { }
 
             return false;
         }
@@ -57,7 +58,7 @@ namespace MyS3
         public static bool IsFileLocked(string filePath)
         {
             // Check last write time
-            if (File.GetLastWriteTime(filePath).AddMilliseconds(5) >= DateTime.Now)
+            if (File.GetLastWriteTime(filePath).AddMilliseconds(1) >= DateTime.Now) // Just closed file is considered as in use
                 return true;
 
             // Can file be opened = everything OK (Not reliable on *nix !)
@@ -153,12 +154,26 @@ namespace MyS3
                 using (var client = new WebClient())
                 using (client.OpenRead("https://google.com/"))
 
-                return true;
+                    return true;
             }
             catch
             {
                 return false;
             }
+        }
+
+        // ---
+
+        public static string ToBase64SafeString(byte[] filePath)
+        {
+            return Convert.ToBase64String(filePath)
+                .Replace(@"\", "[BSLASH]").Replace(@"/", "[FSLASH]");
+        }
+
+        public static byte[] FromBase64SafeString(string safeString)
+        {
+            return Convert.FromBase64String(
+                safeString.Replace("[BSLASH]", @"\").Replace("[FSLASH]", @"/"));
         }
     }
 }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Text;
 
 namespace MyS3
 {
@@ -16,13 +15,13 @@ namespace MyS3
         private readonly string[] ignoredFileExtensions;
 
         private Action<string> changeFunc;
-        private Action<string, string> renameFunc;
+        private Action<string, string, bool> renameFunc;
         private Action<string, bool> removeFunc;
 
         public FileMonitor(string rootPath,
             string[] ignoredDirectoriesNames, string[] ignoredFileExtensions,
             Action<string> changeFunc,
-            Action<string, string> renameFunc,
+            Action<string, string, bool> renameFunc,
             Action<string, bool> removeFunc)
         {
             this.rootPath = rootPath;
@@ -49,9 +48,9 @@ namespace MyS3
                 fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName;
 
                 fileWatcher.Created += OnChange;
-                fileWatcher.Renamed += OnRename;
                 fileWatcher.Changed += OnChange;
-                fileWatcher.Deleted += OnRemoveFile;
+                fileWatcher.Renamed += OnRename;
+                fileWatcher.Deleted += OnDeleteFile;
 
                 fileWatcher.IncludeSubdirectories = true;
             }
@@ -67,7 +66,7 @@ namespace MyS3
                 directoryWatcher.NotifyFilter = NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
 
                 directoryWatcher.Renamed += OnRename;
-                directoryWatcher.Deleted += OnRemoveDirectory;
+                directoryWatcher.Deleted += OnDeleteDirectory;
 
                 directoryWatcher.IncludeSubdirectories = true;
             }
@@ -82,77 +81,80 @@ namespace MyS3
 
         // ---
 
-        public void OnChange(object source, FileSystemEventArgs eventArgs) // = upload
+        private void OnChange(object source, FileSystemEventArgs eventArgs)
         {
-            string offlinePath = eventArgs.FullPath;
+            string path = eventArgs.FullPath;
+            if (Directory.Exists(path)) return;
 
             // Ignore directories
-            if (Directory.Exists(offlinePath)) return;
-            else
-                foreach (string directory in ignoredDirectoriesNames)
-                    if (offlinePath.StartsWith(rootPath + directory)) return;
+            foreach (string directory in ignoredDirectoriesNames)
+                if (path.StartsWith(rootPath + directory)) return;
 
             // Ignore file extensions
             foreach (string fileExtension in ignoredFileExtensions)
-                if (Path.GetExtension(offlinePath) == fileExtension) return;
+                if (Path.GetExtension(path) == fileExtension) return;
 
-            // Execute
-            changeFunc(offlinePath);
+            // ---
+
+            // Handle change
+            changeFunc(path);
         }
 
         private void OnRename(object source, RenamedEventArgs eventArgs)
         {
-            OnRename(eventArgs.OldFullPath, eventArgs.FullPath);
+            OnRename(eventArgs.FullPath, eventArgs.OldFullPath);
         }
-        private void OnRename(string oldOfflinePath, string newOfflinePath)
+
+        private void OnRename(string newPath, string oldPath)
         {
+            bool isDirectory = Directory.Exists(newPath);
+
             // Ignore directories
             foreach (string directory in ignoredDirectoriesNames)
-                if (newOfflinePath.StartsWith(rootPath + directory)) return;
+                if (newPath.StartsWith(rootPath + directory)) return;
 
             // Ignore file extensions
-            foreach (string fileExtension in ignoredFileExtensions)
-                if (Path.GetExtension(newOfflinePath) == fileExtension) return;
+            if (!isDirectory)
+                foreach (string fileExtension in ignoredFileExtensions)
+                    if (Path.GetExtension(newPath) == fileExtension) return;
 
-            // Directory rename
-            if (Directory.Exists(newOfflinePath))
-            {
-                foreach (string filePath in Directory.GetFiles(newOfflinePath))
-                    OnRename(filePath.Replace(newOfflinePath, oldOfflinePath), filePath);
+            // ---
 
-                return;
-            }
-            // File rename
-            renameFunc(oldOfflinePath, newOfflinePath);
+            // Handle rename
+            renameFunc(newPath, oldPath, isDirectory);
         }
 
-        private void OnRemoveFile(object source, FileSystemEventArgs eventArgs)
+        private void OnDeleteFile(object source, FileSystemEventArgs eventArgs)
         {
-            string offlineFilePath = eventArgs.FullPath;
+            string path = eventArgs.FullPath;
 
             // Ignore directories
             foreach (string directory in ignoredDirectoriesNames)
-                if (offlineFilePath.StartsWith(rootPath + directory))
+                if (path.StartsWith(rootPath + directory))
                     return;
 
             // Ignore file extensions
             foreach (string fileExtension in ignoredFileExtensions)
-                if (Path.GetExtension(offlineFilePath) == fileExtension) return;
+                if (Path.GetExtension(path) == fileExtension) return;
+
+            // ---
 
             // Handle removal
-            removeFunc(offlineFilePath, false);
+            removeFunc(path, false);
         }
-        private void OnRemoveDirectory(object source, FileSystemEventArgs eventArgs)
+        private void OnDeleteDirectory(object source, FileSystemEventArgs eventArgs)
         {
-            string offlinePath = eventArgs.FullPath;
+            string path = eventArgs.FullPath;
 
             // Ignore directories
             foreach (string directory in ignoredDirectoriesNames)
-                if (offlinePath.StartsWith(rootPath + directory))
+                if (path.StartsWith(rootPath + directory))
                     return;
 
+            // ---
+
             // Handle removal
-            removeFunc(offlinePath, true);
+            removeFunc(path, true);
         }
 
         // ---

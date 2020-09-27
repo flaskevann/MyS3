@@ -18,7 +18,7 @@ namespace MyS3.GUI
         {
             long downloaded = 0;
             foreach (MyS3Runner MyS3Runner in myS3s)
-                downloaded += MyS3Runner.Downloaded;
+                downloaded += MyS3Runner.DownloadedTotalBytes + MyS3Runner.RestoreDownloadedTotalBytes;
             return downloaded;
         }
 
@@ -26,7 +26,7 @@ namespace MyS3.GUI
         {
             long downloaded = 0;
             foreach (MyS3Runner MyS3Runner in myS3s)
-                downloaded += MyS3Runner.Uploaded;
+                downloaded += MyS3Runner.UploadedTotalBytes;
             return downloaded;
         }
 
@@ -51,7 +51,7 @@ namespace MyS3.GUI
             StartInternetChecker();
             CreateEditSetupMenuItems();
 
-            UseMyS3Setups();
+            TriggerUseMyS3Setups();
         }
 
         private void StartInternetChecker()
@@ -136,8 +136,6 @@ namespace MyS3.GUI
             // Show or hide instructions and MyS3 tabs
             noSetupsLabel.Visible = SetupStore.Entries.Count == 0;
 
-            if (!Tools.HasInternet()) return;
-
             // ---
 
             // Remove old or test overview controls
@@ -186,6 +184,7 @@ namespace MyS3.GUI
                 {
                     myS3.Setup();
                     if (pauseMenuItem.Checked) myS3.Pause(true);
+
                     myS3.Start();
 
                     myS3s.Add(myS3);

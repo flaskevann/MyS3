@@ -106,10 +106,197 @@ namespace MyS3.CLI
 
                 return;
             }
-            else if (bucket == null || region == null || awsAccessKeyID == null || awsSecretAccessKey == null || encryptionPassword == null)
+            else if (bucket == null || region == null || awsAccessKeyID == null || awsSecretAccessKey == null)
             {
                 printUse = true;
             }
+
+            // ---
+
+            // Empty bucket
+            if (emptyBucket)
+            {
+                Console.WriteLine("You have selected to EMPTY your entire S3 bucket \"" + bucket + "\"");
+                Console.Write("Type 'y' to continue or something else to abort: ");
+
+                if (Console.ReadKey().KeyChar == 'y')
+                {
+                    Console.WriteLine("");
+
+                    // Setup S3 interface
+                    S3Wrapper s3 = new S3Wrapper(
+                        bucket, RegionEndpoint.GetBySystemName(region),
+                        awsAccessKeyID, awsSecretAccessKey);
+
+                    // Get object versions
+                    Console.WriteLine("Retrieving S3 object versions - please wait");
+                    List<S3ObjectVersion> s3ObjectVersionsList = s3.GetCompleteObjectVersionList(null);
+
+                    // Start removal
+                    if (s3ObjectVersionsList.Count == 0)
+                    {
+                        Console.WriteLine("No S3 object versions to remove - bucket already empty");
+                    }
+                    else
+                    {
+                        long counter = 0;
+                        foreach (S3ObjectVersion s3ObjectVersion in s3ObjectVersionsList)
+                        {
+                            s3.RemoveAsync(s3ObjectVersion.Key, s3ObjectVersion.VersionId).Wait();
+                            counter++;
+                            Console.WriteLine("Removed version \"" + s3ObjectVersion.VersionId + "\" of S3 object \"" +
+                                s3ObjectVersion.Key + "\" " + "[" + counter + " / " + s3ObjectVersionsList.Count + "]");
+                        }
+
+                        Console.WriteLine("Your S3 bucket \"" + bucket + "\" is now empty");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("");
+                    Console.WriteLine("Aborted emptying bucket \"" + bucket + "\"");
+                }
+
+                return;
+            }
+
+            // ---
+
+            if (encryptionPassword == null)
+            {
+                printUse = true;
+            }
+            else
+            {
+                // Test settings
+                if (runTests)
+                {
+                    Tools.Log("Running tests to check certain settings");
+
+                    // Test encryption password
+                    if (encryptionPassword.Length >= 16 ||
+                            (encryptionPassword.Length >= 8 &&
+                             encryptionPassword.Any(char.IsUpper) && encryptionPassword.Any(char.IsLower) &&
+                             encryptionPassword.Any(char.IsNumber)))
+                    {
+                        // OK encryption password
+                    }
+                    else if (encryptionPassword.Length >= 8 ||
+                        (encryptionPassword.Length >= 6 &&
+                        (encryptionPassword.Any(char.IsUpper) || encryptionPassword.Any(char.IsLower)) &&
+                        encryptionPassword.Any(char.IsNumber)))
+                    {
+                        Tools.Log("Your encryption password is not very strong");
+                    }
+                    else if (encryptionPassword.Length < 8)
+                    {
+                        Tools.Log("Aborting - please choose a strong encryption password");
+                        printUse = true;
+                    }
+
+                    // Run AWS tests
+                    if (!printUse)
+                    {
+                        S3Wrapper s3 = new S3Wrapper(
+                            bucket, RegionEndpoint.GetBySystemName(region),
+                            awsAccessKeyID, awsSecretAccessKey);
+                        ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
+                        {
+                            s3.RunTests();
+                        }));
+                        while (!s3.TestsRun) Thread.Sleep(10);
+                        if (s3.TestsResult == null)
+                        {
+                            Tools.Log("Every test succeeded so running MyS3 is proceeding");
+                        }
+                        else
+                        {
+                            Tools.Log("Encountered a problem with your AWS settings - \"" + s3.TestsResult + "\"");
+                            return;
+                        }
+                    }
+                }
+
+                // ---
+
+                // Setup
+                MyS3Runner myS3Runner = new MyS3Runner(
+                    bucket, region,
+                    awsAccessKeyID, awsSecretAccessKey,
+                    myS3Path,
+                    encryptionPassword,
+                    sharedBucket,
+                    null, Tools.Log);
+                if (verbose) myS3Runner.VerboseLogFunc = Tools.Log;
+                myS3Runner.Setup();
+
+                // Start running
+                myS3Runner.Start();
+                Tools.Log("Press 'p' to pause or continue MyS3's downloads, uploads and restores");
+                Tools.Log("Press 'q' at any time to quit MyS3 gracefully and then wait for work to finish");
+                Tools.Log("...............................................................................");
+
+                // Pause MyS3 right now or when missing network connection
+                if (pauseDownloads) myS3Runner.PauseDownloadsAndRestores(true);
+                if (pauseUploads) myS3Runner.PauseUploads(true);
+                ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
+                {
+                    bool hasInternet = true;
+
+                    while (!myS3Runner.Stopping)
+                    {
+                        bool hasInternetNew = Tools.HasInternet();
+
+                        // Internet access changed
+                        if (hasInternetNew != hasInternet)
+                        {
+                            hasInternet = hasInternetNew;
+                            myS3Runner.Pause(!hasInternet);
+                        }
+
+                        // Pause until next check
+                        Thread.Sleep(10 * 1000);
+                    }
+                }));
+
+                // Start by restoring files
+                if (timeRestoreRemovedFiles != null)
+                    myS3Runner.RestoreFiles(
+                        DateTime.ParseExact(timeRestoreRemovedFiles, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
+                        true);
+                if (timeRestoreFileVersions != null)
+                    myS3Runner.RestoreFiles(
+                        DateTime.ParseExact(timeRestoreFileVersions, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
+                        false);
+
+                // ---
+
+                // Standby
+                while (!myS3Runner.Stopping)
+                {
+                    switch (Console.ReadKey().KeyChar)
+                    {
+                        case 'p':
+                            Console.Write("\b");
+                            myS3Runner.Pause(!myS3Runner.UploadsPaused); // Pause or continue uploads, downloads and restores
+                            break;
+
+                        case 'q':
+                            Console.Write("\b");
+                            Tools.Log("...............................................................................");
+                            Tools.Log("Received exit signal so MyS3 is stopping");
+                            myS3Runner.Stop();
+                            break;
+
+                        default:
+                            Console.Write("\b");
+                            break;
+                    }
+                }
+            }
+
+            // ---
+
             if (printUse)
             {
                 Console.WriteLine("MyS3.CLI has 2 different run configurations:");
@@ -152,183 +339,6 @@ namespace MyS3.CLI
                 Console.WriteLine("         --restore-removed-files=2020-07-01-15 --restore-file-versions=2020-01-01-12'");
 
                 return;
-            }
-
-            // ---
-
-
-            // ---
-
-            // Empty bucket
-            if (emptyBucket)
-            {
-                Console.WriteLine("You have selected to EMPTY your entire S3 bucket \"" + bucket + "\"");
-                Console.Write("Type 'y' to continue or something else to abort: ");
-
-                if (Console.ReadKey().KeyChar == 'y')
-                {
-                    Console.WriteLine("");
-
-                    // Setup S3 interface
-                    S3Wrapper s3 = new S3Wrapper(
-                        bucket, RegionEndpoint.GetBySystemName(region),
-                        awsAccessKeyID, awsSecretAccessKey);
-
-                    // Get object versions
-                    Console.WriteLine("Retrieving S3 object versions - please wait");
-                    List<S3ObjectVersion> s3ObjectVersionsList = s3.GetCompleteObjectVersionsList(null);
-
-                    // Start removal
-                    if (s3ObjectVersionsList.Count == 0)
-                    {
-                        Console.WriteLine("No S3 object versions to remove - bucket already empty");
-                    }
-                    else
-                    {
-                        long counter = 0;
-                        foreach (S3ObjectVersion s3ObjectVersion in s3ObjectVersionsList)
-                        {
-                            s3.RemoveAsync(s3ObjectVersion.Key, s3ObjectVersion.VersionId).Wait();
-                            counter++;
-                            Console.WriteLine("Removed version \"" + s3ObjectVersion.VersionId + "\" of S3 object \"" +
-                                s3ObjectVersion.Key + "\" " + "[" + counter + " / " + s3ObjectVersionsList.Count + "]");
-                        }
-
-                        Console.WriteLine("Your S3 bucket \"" + bucket + "\" is now empty");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("");
-                    Console.WriteLine("Aborted emptying bucket \"" + bucket + "\"");
-                }
-
-                return;
-            }
-
-            // ---
-
-            // Test settings
-            if (runTests)
-            {
-                Tools.Log("Running tests to check certain settings");
-
-                // Test encryption password
-                if (encryptionPassword.Length >= 16 ||
-                        (encryptionPassword.Length >= 8 &&
-                         encryptionPassword.Any(char.IsUpper) && encryptionPassword.Any(char.IsLower) &&
-                         encryptionPassword.Any(char.IsNumber)))
-                {
-                    // OK encryption password
-                }
-                else if (encryptionPassword.Length >= 8 ||
-                    (encryptionPassword.Length >= 6 &&
-                    (encryptionPassword.Any(char.IsUpper) || encryptionPassword.Any(char.IsLower)) &&
-                    encryptionPassword.Any(char.IsNumber)))
-                {
-                    Tools.Log("Your encryption password is not very strong");
-                }
-                else if (encryptionPassword.Length > 0 && encryptionPassword.Length < 8)
-                {
-                    Tools.Log("Aborting - please choose a stronger encryption password");
-                    return;
-                }
-
-                // Run AWS tests
-                S3Wrapper s3 = new S3Wrapper(
-                    bucket, RegionEndpoint.GetBySystemName(region),
-                    awsAccessKeyID, awsSecretAccessKey);
-                ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
-                {
-                    s3.RunTests();
-                }));
-                while (!s3.TestsRun) Thread.Sleep(10);
-                if (s3.TestsResult == null)
-                {
-                    Tools.Log("Every test succeeded so running MyS3 is proceeding");
-                }
-                else
-                {
-                    Tools.Log("Encountered a problem with your AWS settings - \"" + s3.TestsResult + "\"");
-                    return;
-                }
-            }
-
-            // ---
-
-            // Setup
-            MyS3Runner myS3Runner = new MyS3Runner(
-                bucket, region,
-                awsAccessKeyID, awsSecretAccessKey,
-                myS3Path,
-                encryptionPassword,
-                sharedBucket,
-                null, Tools.Log);
-            if (verbose) myS3Runner.VerboseLogFunc = Tools.Log;
-            myS3Runner.Setup();
-
-            // Start
-            myS3Runner.Start();
-            Tools.Log("Press 'p' to pause or continue MyS3's downloads, uploads and restores");
-            Tools.Log("Press 'q' at any time to quit MyS3 gracefully and then wait for work to finish");
-            Tools.Log("...............................................................................");
-
-            // Pause mys3
-            if (pauseDownloads) myS3Runner.PauseDownloads(true);
-            if (pauseUploads) myS3Runner.PauseUploads(true);
-            ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
-            {
-                bool hasInternet = true;
-
-                while (!myS3Runner.Stopping)
-                {
-                    bool hasInternetNew = Tools.HasInternet();
-
-                    // Internet access changed
-                    if (hasInternetNew != hasInternet)
-                    {
-                        hasInternet = hasInternetNew;
-                        myS3Runner.Pause(!hasInternet);
-                    }
-
-                    // Pause until next check
-                    Thread.Sleep(10 * 1000);
-                }
-            }));
-
-            // Restore files
-            if (timeRestoreRemovedFiles != null)
-                myS3Runner.RestoreFiles(
-                    DateTime.ParseExact(timeRestoreRemovedFiles, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
-                    true);
-            if (timeRestoreFileVersions != null)
-                myS3Runner.RestoreFiles(
-                    DateTime.ParseExact(timeRestoreFileVersions, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
-                    false);
-
-            // ---
-
-            // Standby
-            while (!myS3Runner.Stopping)
-            {
-                switch (Console.ReadKey().KeyChar)
-                {
-                    case 'p':
-                        Console.Write("\b");
-                        myS3Runner.Pause(!myS3Runner.UploadsPaused); // Pause or continue uploads, downloads and restores
-                        break;
-
-                    case 'q':
-                        Console.Write("\b");
-                        Tools.Log("...............................................................................");
-                        Tools.Log("Received exit signal so MyS3 is stopping");
-                        myS3Runner.Stop();
-                        break;
-
-                    default:
-                        Console.Write("\b");
-                        break;
-                }
             }
         }
     }
