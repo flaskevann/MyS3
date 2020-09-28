@@ -34,7 +34,7 @@ See <code>Docs/UserManual.pdf</code> to get precise instructions with screenshot
 - Can be run from multiple computers at the same time.
 - Has two types of clients. A graphical interface client (Windows only) and a console client.
 
-IMPORTANT: *Yes, MyS3 can run on multiple computers at the same time and share the same S3 bucket. But MyS3 doesn't support merging of files with identical file paths. It creates file versions instead. So whoever saves his file last "wins". Avoid this by not writing to the same file path from different locations at the same time. Each person using a shared bucket should put his files in his own unique folder. (And if your file still gets overwritten just restore it.)* 
+IMPORTANT: *Yes, MyS3 can run on multiple computers at the same time and share the same S3 bucket. But MyS3 doesn't support merging of files with identical file paths. It creates new S3 object versions instead. So whoever saves his file last "wins". Avoid this by not writing to the same file path from different locations at the same time. Each person using a shared bucket should put his files in his own unique folder. (And if your file still gets overwritten just restore it.)*
 
 ### Getting Started
 
@@ -50,8 +50,6 @@ The console client (CLI client):
 3. Open a console window / a terminal and change directory to the MyS3's executable.
 4. Type and run <code>MyS3.CLI.exe</code> on Windows or <code>./MyS3.CLI</code> on Linux.
 5. Consider putting your command line arguments in a BAT or SH file when everything works OK.
-
-UPDATE: I removed the first release because I discovered a few severe sync bugs. New release coming in the next few days. MyS3 also seems very slow and CPU intensive when handling tens of thousands of files. So it still has to be considered beta for the time being.
 
 ## License
 
