@@ -16,9 +16,7 @@ Read the rest of the pitch at <code>Docs/WhyUseMyS3.pdf</code>
 
 If you're uploading downloaded content like wallpapers, music, software, etc. you don't need MyS3 or client-side encryption. You can just sync your folders directly to S3 buckets instead, using the AWS CLI.
 
-For upload something like <code>aws s3 sync [path-to-folder] [path-to-s3-bucket]</code> works fine. For download you switch folder path with S3 bucket path and get <code>aws s3 sync [path-to-folder] [path-to-S3-bucket]</code>.
-
-Tip: Make a sync script that runs every hour or day.
+For upload something like <code>aws s3 sync [path-to-folder] [path-to-s3-bucket]</code> works fine. For download you switch folder path with S3 bucket path and get <code>aws s3 sync [path-to-folder] [path-to-S3-bucket]</code>. Tip: Make a sync script that runs every hour or day.
 
 ## What
 
