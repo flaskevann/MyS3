@@ -53,6 +53,10 @@ The console client (CLI client):
 4. Type and run <code>MyS3.CLI.exe</code> on Windows or <code>./MyS3.CLI</code> on Linux.
 5. Consider putting your command line arguments in a BAT or SH file when everything works OK.
 
+### Open Issues
+
+Bug has been detected when using the multiple clients option. Learn more: https://github.com/flaskevann/MyS3/issues/2#issue-748390900
+
 ## License
 
 Has a regular MIT license.
