@@ -113,7 +113,7 @@ namespace MyS3.CLI
 
             // ---
 
-            // Empty bucket
+            // Emptying bucket
             if (emptyBucket)
             {
                 Console.WriteLine("You have selected to EMPTY your entire S3 bucket \"" + bucket + "\"");
@@ -220,78 +220,91 @@ namespace MyS3.CLI
                 // ---
 
                 // Setup
-                MyS3Runner myS3Runner = new MyS3Runner(
-                    bucket, region,
-                    awsAccessKeyID, awsSecretAccessKey,
-                    myS3Path,
-                    encryptionPassword,
-                    sharedBucket,
-                    null, Tools.Log);
-                if (verbose) myS3Runner.VerboseLogFunc = Tools.Log;
-                myS3Runner.Setup();
+                try {
+                    MyS3Runner myS3Runner = new MyS3Runner(
+                        bucket, region,
+                        awsAccessKeyID, awsSecretAccessKey,
+                        myS3Path,
+                        encryptionPassword,
+                        sharedBucket,
+                        null, Tools.Log);
+                    if (verbose) myS3Runner.VerboseLogFunc = Tools.Log;
+                    myS3Runner.Setup();
 
-                // Start running
-                myS3Runner.Start();
-                Tools.Log("Press 'p' to pause or continue MyS3's downloads, uploads and restores");
-                Tools.Log("Press 'q' at any time to quit MyS3 gracefully and then wait for work to finish");
-                Tools.Log("...............................................................................");
+                    // Start running
+                    myS3Runner.Start();
+                    Tools.Log("Press 'd' to pause downloads and restores");
+                    Tools.Log("Press 'u' to pause uploads");
+                    Tools.Log("Press 'q' at any time to quit MyS3 gracefully and then wait for work to finish");
+                    Tools.Log("...............................................................................");
 
-                // Pause MyS3 right now or when missing network connection
-                if (pauseDownloads) myS3Runner.PauseDownloadsAndRestores(true);
-                if (pauseUploads) myS3Runner.PauseUploads(true);
-                ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
-                {
+                    // Pause MyS3 right now or when missing network connection
+                    if (pauseDownloads) myS3Runner.PauseDownloadsAndRestores(true);
+                    if (pauseUploads) myS3Runner.PauseUploads(true);
                     bool hasInternet = true;
+                    ThreadPool.QueueUserWorkItem(new WaitCallback((object callback) =>
+                    {
+                        while (!myS3Runner.Stopping)
+                        {
+                            bool hasInternetNew = Tools.HasInternet();
 
+                            // Internet access changed
+                            if (hasInternetNew != hasInternet)
+                            {
+                                hasInternet = hasInternetNew;
+
+                                myS3Runner.PauseDownloadsAndRestores(!hasInternet || pauseDownloads);
+                                myS3Runner.PauseUploads(!hasInternet || pauseUploads);
+                            }
+
+                            // Pause until next check
+                            Thread.Sleep(10 * 1000);
+                        }
+                    }));
+
+                    // Start by restoring files
+                    if (timeRestoreRemovedFiles != null)
+                        myS3Runner.RestoreFiles(
+                            DateTime.ParseExact(timeRestoreRemovedFiles, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
+                            true);
+                    if (timeRestoreFileVersions != null)
+                        myS3Runner.RestoreFiles(
+                            DateTime.ParseExact(timeRestoreFileVersions, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
+                            false);
+
+                    // ---
+
+                    // Standby
                     while (!myS3Runner.Stopping)
                     {
-                        bool hasInternetNew = Tools.HasInternet();
-
-                        // Internet access changed
-                        if (hasInternetNew != hasInternet)
+                        switch (Console.ReadKey().KeyChar)
                         {
-                            hasInternet = hasInternetNew;
-                            myS3Runner.Pause(!hasInternet);
+                            case 'd':
+                                Console.Write("\b");
+                                pauseDownloads = !pauseDownloads;
+                                myS3Runner.PauseDownloadsAndRestores(!hasInternet || pauseDownloads);
+                                break;
+
+                            case 'u':
+                                Console.Write("\b");
+                                pauseUploads = !pauseUploads;
+                                myS3Runner.PauseUploads(!hasInternet || pauseUploads);
+                                break;
+
+                            case 'q':
+                                Console.Write("\b");
+                                Tools.Log("...............................................................................");
+                                Tools.Log("Received exit signal so MyS3 is stopping");
+                                myS3Runner.Stop();
+                                break;
+
+                            default:
+                                Console.Write("\b");
+                                break;
                         }
-
-                        // Pause until next check
-                        Thread.Sleep(10 * 1000);
                     }
-                }));
-
-                // Start by restoring files
-                if (timeRestoreRemovedFiles != null)
-                    myS3Runner.RestoreFiles(
-                        DateTime.ParseExact(timeRestoreRemovedFiles, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
-                        true);
-                if (timeRestoreFileVersions != null)
-                    myS3Runner.RestoreFiles(
-                        DateTime.ParseExact(timeRestoreFileVersions, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture),
-                        false);
-
-                // ---
-
-                // Standby
-                while (!myS3Runner.Stopping)
-                {
-                    switch (Console.ReadKey().KeyChar)
-                    {
-                        case 'p':
-                            Console.Write("\b");
-                            myS3Runner.Pause(!myS3Runner.UploadsPaused); // Pause or continue uploads, downloads and restores
-                            break;
-
-                        case 'q':
-                            Console.Write("\b");
-                            Tools.Log("...............................................................................");
-                            Tools.Log("Received exit signal so MyS3 is stopping");
-                            myS3Runner.Stop();
-                            break;
-
-                        default:
-                            Console.Write("\b");
-                            break;
-                    }
+                } catch (Exception ex) {
+                    Tools.Log(ex.Message);
                 }
             }
 

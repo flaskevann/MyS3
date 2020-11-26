@@ -77,7 +77,7 @@ namespace MyS3.GUI
                                 TriggerUseMyS3Setups();
                             else
                                 foreach (MyS3Runner mys3 in myS3s)
-                                    mys3.Pause(false);
+                                    mys3.Pause(pauseMenuItem.Checked);
                         }
                         else
                         {

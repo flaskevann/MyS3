@@ -1,11 +1,11 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Collections.Generic;
 
 using Xunit;
 using Xunit.Abstractions;
-using System.IO;
-using System.Linq;
 
 namespace MyS3.Tests
 {

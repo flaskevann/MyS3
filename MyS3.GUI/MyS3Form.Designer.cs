@@ -358,7 +358,7 @@
             // 
             this.splitContainer1.Panel2.Controls.Add(this.filesView);
             this.splitContainer1.Size = new System.Drawing.Size(572, 178);
-            this.splitContainer1.SplitterDistance = 190;
+            this.splitContainer1.SplitterDistance = 189;
             this.splitContainer1.TabIndex = 0;
             this.splitContainer1.Text = "splitContainer1";
             // 
@@ -370,7 +370,7 @@
             this.filesTree.Location = new System.Drawing.Point(0, 0);
             this.filesTree.Name = "filesTree";
             this.filesTree.SelectedImageIndex = 0;
-            this.filesTree.Size = new System.Drawing.Size(190, 178);
+            this.filesTree.Size = new System.Drawing.Size(189, 178);
             this.filesTree.TabIndex = 2;
             this.filesTree.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.filesTree_AfterSelected);
             this.filesTree.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.filesTree_NodeMouseClick);
@@ -397,7 +397,7 @@
             this.filesView.Location = new System.Drawing.Point(0, 0);
             this.filesView.MultiSelect = false;
             this.filesView.Name = "filesView";
-            this.filesView.Size = new System.Drawing.Size(378, 178);
+            this.filesView.Size = new System.Drawing.Size(379, 178);
             this.filesView.SmallImageList = this.imageList;
             this.filesView.Sorting = System.Windows.Forms.SortOrder.Descending;
             this.filesView.TabIndex = 3;
@@ -428,7 +428,7 @@
             this.downloadsTab.Controls.Add(this.downloadSpeedLabel);
             this.downloadsTab.Location = new System.Drawing.Point(4, 24);
             this.downloadsTab.Name = "downloadsTab";
-            this.downloadsTab.Padding = new System.Windows.Forms.Padding(3);
+            this.downloadsTab.Padding = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.downloadsTab.Size = new System.Drawing.Size(572, 178);
             this.downloadsTab.TabIndex = 0;
             this.downloadsTab.Text = "Downloads";
@@ -461,7 +461,7 @@
             this.tableLayoutPanel6.ColumnCount = 3;
             this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 43.51145F));
             this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 56.48855F));
-            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 403F));
+            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 405F));
             this.tableLayoutPanel6.Controls.Add(this.downloadsListTitleLabel, 2, 1);
             this.tableLayoutPanel6.Controls.Add(this.downloadSizeLabel, 0, 0);
             this.tableLayoutPanel6.Controls.Add(this.downloadProgress, 1, 0);
@@ -478,7 +478,7 @@
             // 
             // downloadsListTitleLabel
             // 
-            this.downloadsListTitleLabel.Location = new System.Drawing.Point(147, 25);
+            this.downloadsListTitleLabel.Location = new System.Drawing.Point(149, 25);
             this.downloadsListTitleLabel.Name = "downloadsListTitleLabel";
             this.downloadsListTitleLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.downloadsListTitleLabel.Size = new System.Drawing.Size(254, 25);
@@ -489,11 +489,11 @@
             // 
             // downloadSizeLabel
             // 
-            this.downloadSizeLabel.Location = new System.Drawing.Point(486, 5);
+            this.downloadSizeLabel.Location = new System.Drawing.Point(487, 5);
             this.downloadSizeLabel.Margin = new System.Windows.Forms.Padding(0, 5, 0, 0);
             this.downloadSizeLabel.Name = "downloadSizeLabel";
             this.downloadSizeLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.downloadSizeLabel.Size = new System.Drawing.Size(63, 15);
+            this.downloadSizeLabel.Size = new System.Drawing.Size(62, 15);
             this.downloadSizeLabel.TabIndex = 100;
             this.downloadSizeLabel.Text = "3.2 MB";
             this.downloadSizeLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -501,17 +501,17 @@
             // 
             // downloadProgress
             // 
-            this.downloadProgress.Location = new System.Drawing.Point(404, 0);
+            this.downloadProgress.Location = new System.Drawing.Point(406, 0);
             this.downloadProgress.Margin = new System.Windows.Forms.Padding(0);
             this.downloadProgress.Name = "downloadProgress";
-            this.downloadProgress.Size = new System.Drawing.Size(82, 25);
+            this.downloadProgress.Size = new System.Drawing.Size(81, 25);
             this.downloadProgress.TabIndex = 100;
             this.downloadProgress.Value = 100;
             this.downloadProgress.Visible = false;
             // 
             // downloadFileLabel
             // 
-            this.downloadFileLabel.Location = new System.Drawing.Point(37, 5);
+            this.downloadFileLabel.Location = new System.Drawing.Point(39, 5);
             this.downloadFileLabel.Margin = new System.Windows.Forms.Padding(0, 5, 0, 0);
             this.downloadFileLabel.Name = "downloadFileLabel";
             this.downloadFileLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
@@ -524,7 +524,7 @@
             // 
             // downloadPercentLabel
             // 
-            this.downloadPercentLabel.Location = new System.Drawing.Point(414, 25);
+            this.downloadPercentLabel.Location = new System.Drawing.Point(415, 25);
             this.downloadPercentLabel.Name = "downloadPercentLabel";
             this.downloadPercentLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.downloadPercentLabel.Size = new System.Drawing.Size(69, 25);
@@ -553,7 +553,7 @@
             this.uploadsTab.Controls.Add(this.uploadsList);
             this.uploadsTab.Location = new System.Drawing.Point(4, 24);
             this.uploadsTab.Name = "uploadsTab";
-            this.uploadsTab.Padding = new System.Windows.Forms.Padding(3);
+            this.uploadsTab.Padding = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.uploadsTab.Size = new System.Drawing.Size(572, 178);
             this.uploadsTab.TabIndex = 1;
             this.uploadsTab.Text = "Uploads";
@@ -564,7 +564,7 @@
             this.tableLayoutPanel5.ColumnCount = 3;
             this.tableLayoutPanel5.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 43.51145F));
             this.tableLayoutPanel5.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 56.48855F));
-            this.tableLayoutPanel5.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 403F));
+            this.tableLayoutPanel5.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 405F));
             this.tableLayoutPanel5.Controls.Add(this.uploadsListTitleLabel, 2, 1);
             this.tableLayoutPanel5.Controls.Add(this.uploadSizeLabel, 0, 0);
             this.tableLayoutPanel5.Controls.Add(this.uploadProgress, 1, 0);
@@ -581,7 +581,7 @@
             // 
             // uploadsListTitleLabel
             // 
-            this.uploadsListTitleLabel.Location = new System.Drawing.Point(147, 25);
+            this.uploadsListTitleLabel.Location = new System.Drawing.Point(149, 25);
             this.uploadsListTitleLabel.Name = "uploadsListTitleLabel";
             this.uploadsListTitleLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.uploadsListTitleLabel.Size = new System.Drawing.Size(254, 25);
@@ -592,11 +592,11 @@
             // 
             // uploadSizeLabel
             // 
-            this.uploadSizeLabel.Location = new System.Drawing.Point(486, 5);
+            this.uploadSizeLabel.Location = new System.Drawing.Point(487, 5);
             this.uploadSizeLabel.Margin = new System.Windows.Forms.Padding(0, 5, 0, 0);
             this.uploadSizeLabel.Name = "uploadSizeLabel";
             this.uploadSizeLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.uploadSizeLabel.Size = new System.Drawing.Size(63, 15);
+            this.uploadSizeLabel.Size = new System.Drawing.Size(62, 15);
             this.uploadSizeLabel.TabIndex = 100;
             this.uploadSizeLabel.Text = "3.2 MB";
             this.uploadSizeLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -604,17 +604,17 @@
             // 
             // uploadProgress
             // 
-            this.uploadProgress.Location = new System.Drawing.Point(404, 0);
+            this.uploadProgress.Location = new System.Drawing.Point(406, 0);
             this.uploadProgress.Margin = new System.Windows.Forms.Padding(0);
             this.uploadProgress.Name = "uploadProgress";
-            this.uploadProgress.Size = new System.Drawing.Size(82, 25);
+            this.uploadProgress.Size = new System.Drawing.Size(81, 25);
             this.uploadProgress.TabIndex = 100;
             this.uploadProgress.Value = 100;
             this.uploadProgress.Visible = false;
             // 
             // uploadFileLabel
             // 
-            this.uploadFileLabel.Location = new System.Drawing.Point(37, 5);
+            this.uploadFileLabel.Location = new System.Drawing.Point(39, 5);
             this.uploadFileLabel.Margin = new System.Windows.Forms.Padding(0, 5, 0, 0);
             this.uploadFileLabel.Name = "uploadFileLabel";
             this.uploadFileLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
@@ -627,7 +627,7 @@
             // 
             // uploadPercentLabel
             // 
-            this.uploadPercentLabel.Location = new System.Drawing.Point(414, 25);
+            this.uploadPercentLabel.Location = new System.Drawing.Point(415, 25);
             this.uploadPercentLabel.Name = "uploadPercentLabel";
             this.uploadPercentLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.uploadPercentLabel.Size = new System.Drawing.Size(69, 25);
@@ -677,7 +677,7 @@
             this.restoresTab.Controls.Add(this.restoreDownloadSpeedLabel);
             this.restoresTab.Location = new System.Drawing.Point(4, 24);
             this.restoresTab.Name = "restoresTab";
-            this.restoresTab.Padding = new System.Windows.Forms.Padding(3);
+            this.restoresTab.Padding = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.restoresTab.Size = new System.Drawing.Size(572, 178);
             this.restoresTab.TabIndex = 4;
             this.restoresTab.Text = "Restores";
@@ -710,7 +710,7 @@
             this.tableLayoutPanel7.ColumnCount = 3;
             this.tableLayoutPanel7.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 43.51145F));
             this.tableLayoutPanel7.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 56.48855F));
-            this.tableLayoutPanel7.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 403F));
+            this.tableLayoutPanel7.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 405F));
             this.tableLayoutPanel7.Controls.Add(this.restoreDownloadsListTitleLabel, 2, 1);
             this.tableLayoutPanel7.Controls.Add(this.restoreDownloadSizeLabel, 0, 0);
             this.tableLayoutPanel7.Controls.Add(this.restoreDownloadProgress, 1, 0);
@@ -727,7 +727,7 @@
             // 
             // restoreDownloadsListTitleLabel
             // 
-            this.restoreDownloadsListTitleLabel.Location = new System.Drawing.Point(147, 25);
+            this.restoreDownloadsListTitleLabel.Location = new System.Drawing.Point(149, 25);
             this.restoreDownloadsListTitleLabel.Name = "restoreDownloadsListTitleLabel";
             this.restoreDownloadsListTitleLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.restoreDownloadsListTitleLabel.Size = new System.Drawing.Size(254, 25);
@@ -738,11 +738,11 @@
             // 
             // restoreDownloadSizeLabel
             // 
-            this.restoreDownloadSizeLabel.Location = new System.Drawing.Point(486, 5);
+            this.restoreDownloadSizeLabel.Location = new System.Drawing.Point(487, 5);
             this.restoreDownloadSizeLabel.Margin = new System.Windows.Forms.Padding(0, 5, 0, 0);
             this.restoreDownloadSizeLabel.Name = "restoreDownloadSizeLabel";
             this.restoreDownloadSizeLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.restoreDownloadSizeLabel.Size = new System.Drawing.Size(63, 15);
+            this.restoreDownloadSizeLabel.Size = new System.Drawing.Size(62, 15);
             this.restoreDownloadSizeLabel.TabIndex = 100;
             this.restoreDownloadSizeLabel.Text = "3.2 MB";
             this.restoreDownloadSizeLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -750,17 +750,17 @@
             // 
             // restoreDownloadProgress
             // 
-            this.restoreDownloadProgress.Location = new System.Drawing.Point(404, 0);
+            this.restoreDownloadProgress.Location = new System.Drawing.Point(406, 0);
             this.restoreDownloadProgress.Margin = new System.Windows.Forms.Padding(0);
             this.restoreDownloadProgress.Name = "restoreDownloadProgress";
-            this.restoreDownloadProgress.Size = new System.Drawing.Size(82, 25);
+            this.restoreDownloadProgress.Size = new System.Drawing.Size(81, 25);
             this.restoreDownloadProgress.TabIndex = 100;
             this.restoreDownloadProgress.Value = 100;
             this.restoreDownloadProgress.Visible = false;
             // 
             // restoreDownloadFileLabel
             // 
-            this.restoreDownloadFileLabel.Location = new System.Drawing.Point(37, 5);
+            this.restoreDownloadFileLabel.Location = new System.Drawing.Point(39, 5);
             this.restoreDownloadFileLabel.Margin = new System.Windows.Forms.Padding(0, 5, 0, 0);
             this.restoreDownloadFileLabel.Name = "restoreDownloadFileLabel";
             this.restoreDownloadFileLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
@@ -773,7 +773,7 @@
             // 
             // restoreDownloadPercentLabel
             // 
-            this.restoreDownloadPercentLabel.Location = new System.Drawing.Point(414, 25);
+            this.restoreDownloadPercentLabel.Location = new System.Drawing.Point(415, 25);
             this.restoreDownloadPercentLabel.Name = "restoreDownloadPercentLabel";
             this.restoreDownloadPercentLabel.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.restoreDownloadPercentLabel.Size = new System.Drawing.Size(69, 25);
@@ -799,7 +799,7 @@
             this.consoleTab.Controls.Add(this.consoleBox);
             this.consoleTab.Location = new System.Drawing.Point(4, 24);
             this.consoleTab.Name = "consoleTab";
-            this.consoleTab.Padding = new System.Windows.Forms.Padding(3);
+            this.consoleTab.Padding = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.consoleTab.Size = new System.Drawing.Size(572, 178);
             this.consoleTab.TabIndex = 2;
             this.consoleTab.Text = "Console";

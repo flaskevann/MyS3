@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 
@@ -20,7 +21,7 @@ namespace MyS3
      */
 
     [Serializable]
-    public class S3ObjectMetadata
+    public class S3ObjectMetadata : IEquatable<S3ObjectMetadata>
     {
         public string OfflineFilePathInsideMyS3 { get { return offlineFilePathInsideMyS3; } }
         private string offlineFilePathInsideMyS3; // Beware: Always has the same type of slashes as used in the OS the user uses
@@ -80,6 +81,11 @@ namespace MyS3
             string[] pieces = s3ObjectKeyAsText.Split("__", StringSplitOptions.RemoveEmptyEntries);
 
             return pieces.Length == 3 && (pieces[1] + "").All(char.IsDigit) && (pieces[2] + "").All(char.IsDigit);
+        }
+
+        public bool Equals([AllowNull] S3ObjectMetadata other)
+        {
+            return other.ToString() == this.ToString();
         }
     }
 }

@@ -84,7 +84,7 @@ namespace MyS3
         private void OnChange(object source, FileSystemEventArgs eventArgs)
         {
             string path = eventArgs.FullPath;
-            if (Directory.Exists(path)) return;
+            if (Directory.Exists(path) || !File.Exists(path)) return;
 
             // Ignore directories
             foreach (string directory in ignoredDirectoriesNames)
@@ -92,7 +92,7 @@ namespace MyS3
 
             // Ignore file extensions
             foreach (string fileExtension in ignoredFileExtensions)
-                if (Path.GetExtension(path) == fileExtension) return;
+                if (Path.GetExtension(path).ToLower() == fileExtension) return;
 
             // ---
 
@@ -116,7 +116,7 @@ namespace MyS3
             // Ignore file extensions
             if (!isDirectory)
                 foreach (string fileExtension in ignoredFileExtensions)
-                    if (Path.GetExtension(newPath) == fileExtension) return;
+                    if (Path.GetExtension(newPath).ToLower() == fileExtension) return;
 
             // ---
 
@@ -135,7 +135,7 @@ namespace MyS3
 
             // Ignore file extensions
             foreach (string fileExtension in ignoredFileExtensions)
-                if (Path.GetExtension(path) == fileExtension) return;
+                if (Path.GetExtension(path).ToLower() == fileExtension) return;
 
             // ---
 
