@@ -58,7 +58,7 @@ namespace MyS3
         public static bool IsFileLocked(string filePath)
         {
             // Check last write time
-            if (File.GetLastWriteTime(filePath).AddMilliseconds(1) >= DateTime.Now) // Just closed file is considered as in use
+            if (File.GetLastWriteTime(filePath) >= DateTime.Now) // Just closed file is considered as in use
                 return true;
 
             // Can file be opened = everything OK (Not reliable on *nix !)

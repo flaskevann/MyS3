@@ -1,25 +1,26 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>4.1.0</Version>
+    <Version>4.2.0</Version>
     <Authors>Ove Bakken</Authors>
     <Company>Ove Bakken</Company>
     <Copyright>MIT</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Arbeid\Utvikling\MyS3\MyS3\Backup\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
+    <AssemblyVersion>4.2.0.0</AssemblyVersion>
+    <FileVersion>4.2.0.0</FileVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="AWSSDK.Core" Version="3.3.107.40" />
     <PackageReference Include="AWSSDK.S3" Version="3.3.113.2" />
   </ItemGroup>
-
   <ItemGroup>
     <Reference Include="EncryptionAndHashingLibrary">
       <HintPath>..\EncryptionAndHashingLibrary\EncryptionAndHashingLibrary\bin\Release\netcoreapp3.1\EncryptionAndHashingLibrary.dll</HintPath>
     </Reference>
   </ItemGroup>
-
 </Project>

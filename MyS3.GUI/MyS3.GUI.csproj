@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
-
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop" ToolsVersion="Current">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
@@ -9,24 +8,24 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>Ove Bakken</Authors>
     <Company>Ove Bakken</Company>
-    <Version>4.1.0</Version>
+    <Version>4.2.0</Version>
     <Copyright>MIT</Copyright>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Arbeid\Utvikling\MyS3\MyS3\Backup\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
+    <AssemblyVersion>4.2.0.0</AssemblyVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="4.7.2" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\MyS3\MyS3.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <Reference Include="EncryptionAndHashingLibrary">
       <HintPath>..\EncryptionAndHashingLibrary\EncryptionAndHashingLibrary\bin\Release\netcoreapp3.1\EncryptionAndHashingLibrary.dll</HintPath>
     </Reference>
   </ItemGroup>
-
   <ItemGroup>
     <Compile Update="InfoBox.cs">
       <SubType>Form</SubType>
@@ -36,13 +35,22 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
   </ItemGroup>
-
   <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
 </Project>

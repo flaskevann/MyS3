@@ -67,7 +67,7 @@ namespace MyS3
         private static readonly int SECONDS_MIN_PAUSE_BETWEEN_OPERATIONS_ON_SAME_FILE = 3; // Min pause until next upload or download of the same file,
                                                                                          // in case of slow file activity handling
         private static readonly int SECONDS_PAUSE_BETWEEN_EACH_S3_AND_MYS3_COMPARISON_WHEN_SHARED_BUCKET = 60;
-        private static readonly int INACTIVITY_PAUSE = 1000;
+        private static readonly int INACTIVITY_PAUSE = 3000;
 
         // ---
 
@@ -348,8 +348,29 @@ namespace MyS3
 
         public bool IsIndexingMyS3Files { get { return isIndexingMyS3Files; } }
         private bool isIndexingMyS3Files = false;
-        
+
         //
+
+        public int NumberOfS3Files
+        {
+            get
+            {
+                bool acquiredLock = false;
+                try
+                {
+                    Monitor.TryEnter(s3ObjectIndexDict, 10, ref acquiredLock);
+                    if (acquiredLock)
+                        lastNumberOfS3Files = s3ObjectIndexDict.Count;
+                    return lastNumberOfS3Files;
+                }
+                finally
+                {
+                    if (acquiredLock)
+                        Monitor.Exit(s3ObjectIndexDict);
+                }
+            }
+        }
+        private int lastNumberOfS3Files = 0;
 
         public int NumberOfMyS3Files
         {
@@ -810,7 +831,7 @@ namespace MyS3
 
                                         // Replace or add metadata
                                         if (newS3ObjectIndexDict.ContainsKey(anotherOfflineFilePathInsideMyS3)) // already added
-                                            if (anotherS3ObjectMetadata.LastModifiedUTC.AddSeconds(-1.0) > newS3ObjectIndexDict[anotherOfflineFilePathInsideMyS3].LastModifiedUTC) // -1 sec as margin of error
+                                            if (anotherS3ObjectMetadata.LastModifiedUTC > newS3ObjectIndexDict[anotherOfflineFilePathInsideMyS3].LastModifiedUTC)
                                             {
                                                 // Remove older
                                                 string oldS3ObjectKeyWithMetadata = newS3ObjectIndexDict[anotherOfflineFilePathInsideMyS3].ToString();
@@ -845,8 +866,8 @@ namespace MyS3
                                 isComparingS3AndMyS3 = true;
 
                                 if (verboseLogFunc != null)
-                                    verboseLogFunc("Comparing S3 objects and files [" + NumberOfMyS3Files + " " + (NumberOfMyS3Files == 1 ? "file" : "files") +
-                                        " = " + Tools.GetByteSizeAsText(GetSumMyS3FilesSize()) + "]");
+                                    verboseLogFunc("Comparing S3 objects [" + NumberOfS3Files + "]" +
+                                        " and MyS3 files [" + NumberOfMyS3Files + " = " + Tools.GetByteSizeAsText(GetSumMyS3FilesSize()) + "]");
 
                                 // 3.1 Find files locally that should be removed when already removed in S3 from elsewhere (shared bucket only)
                                 if (removedS3ObjectsList.Count > 0)
@@ -865,9 +886,14 @@ namespace MyS3
                                         DateTime removedS3ObjectLastModifiedUTC = removedS3ObjectWithMetadata.LastModifiedUTC;
 
                                         // Remove local file if older
-                                        if (copiedMyS3FileIndexDict.ContainsKey(offlineFilePathInsideMyS3) &&                     // File removed on a different client or overwritten locally
+                                        if (copiedMyS3FileIndexDict.ContainsKey(offlineFilePathInsideMyS3) &&                     // File removed on a different client
                                             removedS3ObjectLastModifiedUTC == copiedMyS3FileIndexDict[offlineFilePathInsideMyS3]) // Same last modified time = same file
                                         {                                                                                         // = should be removed locally
+                                            verboseLogFunc("Deleting " + offlineFilePathInsideMyS3 + " because " + 
+                                                removedS3ObjectLastModifiedUTC.ToLongDateString() + " " + removedS3ObjectLastModifiedUTC.ToLongTimeString() + 
+                                                    " == " +
+                                                copiedMyS3FileIndexDict[offlineFilePathInsideMyS3].ToLongDateString() + " " + copiedMyS3FileIndexDict[offlineFilePathInsideMyS3].ToLongTimeString());
+                                            
                                             // Remove file
                                             try { File.Delete(offlineFilePath); } catch (Exception) { } // trigger file remove handler with necessary actions
 
@@ -915,7 +941,7 @@ namespace MyS3
                                             DateTime s3ObjectLastModifiedUTC = s3ObjectIndexEntryKVP.Value.LastModifiedUTC;
 
                                             // When S3 object is new
-                                            if (s3ObjectLastModifiedUTC.AddSeconds(-1.0) > offlineFileLastModifiedUTC) // -1 sec as margin of error
+                                            if (s3ObjectLastModifiedUTC > offlineFileLastModifiedUTC)
                                             {
                                                 // Skip if in use
                                                 if (Tools.IsFileLocked(offlineFilePath)) continue;
@@ -984,7 +1010,7 @@ namespace MyS3
                                             DateTime s3ObjectLastModifiedUTC = s3ObjectIndexDict[offlineFilePathInsideMyS3].LastModifiedUTC;
 
                                             // Newer file locally
-                                            if (offlineFileLastModifiedUTC.AddSeconds(-1.0) > s3ObjectLastModifiedUTC) // -1 sec as margin of error
+                                            if (offlineFileLastModifiedUTC > s3ObjectLastModifiedUTC)
                                                 lock (uploadListHashSet)
                                                     lock (downloadListHashSet)
                                                         lock (renameListDict)
@@ -994,6 +1020,10 @@ namespace MyS3
                                                                     !renameListDict.Values.Contains(offlineFilePathInsideMyS3) && // not set to be renamed
                                                                     !removeListHashSet.Contains(offlineFilePathInsideMyS3)) // not set to be removed
                                                                 {
+                                                                    verboseLogFunc("found updated file: " + 
+                                                                        offlineFileLastModifiedUTC.ToLongDateString() + " " + offlineFileLastModifiedUTC.ToLongTimeString() + " > " +
+                                                                        s3ObjectLastModifiedUTC.ToLongDateString() + " " + s3ObjectLastModifiedUTC.ToLongTimeString());
+
                                                                     // Add to upload queue
                                                                     uploadListHashSet.Add(offlineFilePathInsideMyS3);
 
@@ -1104,7 +1134,7 @@ namespace MyS3
 
                         // ---
 
-                        // Get paths, last modified and remaining uploads
+                        // Get paths and remaining uploads
                         string offlineFilePathInsideMyS3;
                         int remainingUploads = 0;
                         lock (uploadListHashSet) {
@@ -1112,14 +1142,6 @@ namespace MyS3
                             remainingUploads = uploadListHashSet.Count;
                         }
                         string offlineFilePath = myS3Path + offlineFilePathInsideMyS3;
-                        DateTime offlineFileTimeLastModifiedUTC = DateTime.MinValue;
-                        lock (myS3FileIndexDict)
-                            if (myS3FileIndexDict.ContainsKey(offlineFilePathInsideMyS3))
-                                offlineFileTimeLastModifiedUTC = myS3FileIndexDict[offlineFilePathInsideMyS3];
-                        DateTime newOfflineFileLastModifiedUTC = DateTime.UtcNow; // new time to make file newer than the prev uploaded
-                        string encryptedUploadFilePath =
-                            myS3Path + RELATIVE_LOCAL_MYS3_WORK_DIRECTORY_PATH + // complete directory path
-                            Path.GetFileName(offlineFilePath) + "." + DateTime.Now.Ticks + ".ENCRYPTED"; // temp file with encrypted data for S3 upload
 
                         // Check access and existence
                         if (!File.Exists(offlineFilePath) || Tools.IsFileLocked(offlineFilePath))
@@ -1139,6 +1161,16 @@ namespace MyS3
 
                             continue;
                         }
+
+                        // Get last modified time
+                        File.SetLastWriteTimeUtc(offlineFilePath, DateTime.UtcNow); // Set new last modified time = makes file look new = won't be deleted and or overwritten by MyS3 later
+                        DateTime newOfflineFileLastModifiedUTC = File.GetLastWriteTimeUtc(offlineFilePath); // probably not the same as above because of in-perfect file system
+                        lock (myS3FileIndexDict)
+                            myS3FileIndexDict[offlineFilePathInsideMyS3] = newOfflineFileLastModifiedUTC;
+
+                        string encryptedUploadFilePath =
+                            myS3Path + RELATIVE_LOCAL_MYS3_WORK_DIRECTORY_PATH + // complete directory path
+                            Path.GetFileName(offlineFilePath) + "." + DateTime.Now.Ticks + ".ENCRYPTED"; // temp file with encrypted data for S3 upload
 
                         // ---
 
@@ -1233,7 +1265,7 @@ namespace MyS3
                                 bool myS3FileModified = true;
                                 lock (myS3FileIndexDict)
                                     if (myS3FileIndexDict.ContainsKey(offlineFilePathInsideMyS3))
-                                        myS3FileModified = !File.Exists(offlineFilePath) || offlineFileTimeLastModifiedUTC != myS3FileIndexDict[offlineFilePathInsideMyS3];
+                                        myS3FileModified = !File.Exists(offlineFilePath) || newOfflineFileLastModifiedUTC != myS3FileIndexDict[offlineFilePathInsideMyS3];
 
                                 // ---
 
@@ -1282,16 +1314,6 @@ namespace MyS3
                                 }
 
                                 // ---
-
-                                // Set new last modified time = makes file look new = won't be deleted and or overwritten later
-                                try
-                                {
-                                    File.SetLastWriteTimeUtc(offlineFilePath, newOfflineFileLastModifiedUTC);
-
-                                    lock (myS3FileIndexDict)
-                                        myS3FileIndexDict[offlineFilePathInsideMyS3] = newOfflineFileLastModifiedUTC;
-                                }
-                                catch (Exception) { }
 
                                 // Update S3 index
                                 lock (s3ObjectIndexDict)
@@ -1420,7 +1442,7 @@ namespace MyS3
                             }
 
                         // Abort if changed or busy
-                        if ((File.Exists(offlineFilePath) && ((offlineFileTimeLastModifiedUTC != DateTime.MinValue && offlineFileTimeLastModifiedUTC.AddSeconds(-1.0) > s3ObjectlastModifiedUTC) || Tools.IsFileLocked(offlineFilePath))) // -1 sec as margin of error
+                        if ((File.Exists(offlineFilePath) && ((offlineFileTimeLastModifiedUTC != DateTime.MinValue && offlineFileTimeLastModifiedUTC > s3ObjectlastModifiedUTC) || Tools.IsFileLocked(offlineFilePath)))
                             || s3ObjectMetadata == null)
                             lock (downloadListHashSet)
                             {
@@ -1488,7 +1510,7 @@ namespace MyS3
                                 // ---
 
                                 if (!downloadStillPlanned || pauseDownloads || // Abort if certain changes
-                                   ((offlineFileTimeLastModifiedUTC != DateTime.MinValue) && offlineFileTimeLastModifiedUTC.AddSeconds(-1.0) > s3ObjectlastModifiedUTC)) // -1 sec as margin of error
+                                   ((offlineFileTimeLastModifiedUTC != DateTime.MinValue) && offlineFileTimeLastModifiedUTC > s3ObjectlastModifiedUTC))
                                     cancelTokenSource.Cancel();
                                 else
                                     Thread.Sleep(25);
@@ -1972,8 +1994,9 @@ namespace MyS3
                         }
 
                         // Order by time changed
-                        restoreDownloadListDict[offlineFilePathInsideMyS3] =
-                            restoreDownloadListDict[offlineFilePathInsideMyS3].OrderBy(x => x.LastModified).ToHashSet(); // oldest first
+                        if (restoreDownloadListDict.ContainsKey(offlineFilePathInsideMyS3))
+                            restoreDownloadListDict[offlineFilePathInsideMyS3] =
+                                restoreDownloadListDict[offlineFilePathInsideMyS3].OrderBy(x => x.LastModified).ToHashSet(); // oldest first
                     }
 
                     // 2. Now do the restoring of earlier file versions

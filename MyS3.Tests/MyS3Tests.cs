@@ -90,7 +90,10 @@ namespace MyS3.Tests
             S3ObjectMetadata reconstructedTestS3ObjectKey = new S3ObjectMetadata(testS3ObjectKeyWithMetadata, encryptionPassword);
 
             Assert.Equal(testFilePath, reconstructedTestS3ObjectKey.OfflineFilePathInsideMyS3);
-            Assert.Equal(lastModifiedUTC, reconstructedTestS3ObjectKey.LastModifiedUTC);
+            Assert.Equal(
+                lastModifiedUTC.ToLongDateString() + " " + lastModifiedUTC.ToLongTimeString(),
+                reconstructedTestS3ObjectKey.LastModifiedUTC.ToLongDateString() + " " + reconstructedTestS3ObjectKey.LastModifiedUTC.ToLongTimeString()
+            );
             Assert.Equal(decryptedSize, reconstructedTestS3ObjectKey.DecryptedSize);
         }
     }

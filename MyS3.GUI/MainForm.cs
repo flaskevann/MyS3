@@ -48,6 +48,9 @@ namespace MyS3.GUI
         {
             InitializeComponent();
 
+            // Get pause status
+            pauseMenuItem.Checked = Properties.Settings.Default.Pause;
+
             StartInternetChecker();
             CreateEditSetupMenuItems();
 
@@ -77,7 +80,7 @@ namespace MyS3.GUI
                                 TriggerUseMyS3Setups();
                             else
                                 foreach (MyS3Runner mys3 in myS3s)
-                                    mys3.Pause(pauseMenuItem.Checked);
+                                    mys3.Pause(Properties.Settings.Default.Pause);
                         }
                         else
                         {
@@ -183,7 +186,7 @@ namespace MyS3.GUI
                 try
                 {
                     myS3.Setup();
-                    if (pauseMenuItem.Checked) myS3.Pause(true);
+                    if (Properties.Settings.Default.Pause) myS3.Pause(true);
 
                     myS3.Start();
 
@@ -245,14 +248,16 @@ namespace MyS3.GUI
 
         private void pauseMenuItem_Click(object sender, EventArgs e)
         {
-            bool paused = pauseMenuItem.Checked;
+            Properties.Settings.Default.Pause = pauseMenuItem.Checked;
+            Properties.Settings.Default.Save();
+            bool paused = Properties.Settings.Default.Pause;
 
             // Pause or continue
             foreach (MyS3Runner myS3 in myS3s)
                 myS3.Pause(paused);
 
             statusLabel.Text = "Status: " +
-                (paused ? 
+                (paused ?
                     "All MyS3 downloads and uploads paused" :
                     "All MyS3 downloads and uploads set to continue");
         }
