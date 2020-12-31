@@ -888,12 +888,7 @@ namespace MyS3
                                         // Remove local file if older
                                         if (copiedMyS3FileIndexDict.ContainsKey(offlineFilePathInsideMyS3) &&                     // File removed on a different client
                                             removedS3ObjectLastModifiedUTC == copiedMyS3FileIndexDict[offlineFilePathInsideMyS3]) // Same last modified time = same file
-                                        {                                                                                         // = should be removed locally
-                                            verboseLogFunc("Deleting " + offlineFilePathInsideMyS3 + " because " + 
-                                                removedS3ObjectLastModifiedUTC.ToLongDateString() + " " + removedS3ObjectLastModifiedUTC.ToLongTimeString() + 
-                                                    " == " +
-                                                copiedMyS3FileIndexDict[offlineFilePathInsideMyS3].ToLongDateString() + " " + copiedMyS3FileIndexDict[offlineFilePathInsideMyS3].ToLongTimeString());
-                                            
+                                        {                                                                                         // = should be removed locally                                            
                                             // Remove file
                                             try { File.Delete(offlineFilePath); } catch (Exception) { } // trigger file remove handler with necessary actions
 
@@ -1020,10 +1015,6 @@ namespace MyS3
                                                                     !renameListDict.Values.Contains(offlineFilePathInsideMyS3) && // not set to be renamed
                                                                     !removeListHashSet.Contains(offlineFilePathInsideMyS3)) // not set to be removed
                                                                 {
-                                                                    verboseLogFunc("found updated file: " + 
-                                                                        offlineFileLastModifiedUTC.ToLongDateString() + " " + offlineFileLastModifiedUTC.ToLongTimeString() + " > " +
-                                                                        s3ObjectLastModifiedUTC.ToLongDateString() + " " + s3ObjectLastModifiedUTC.ToLongTimeString());
-
                                                                     // Add to upload queue
                                                                     uploadListHashSet.Add(offlineFilePathInsideMyS3);
 
