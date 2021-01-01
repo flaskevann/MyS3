@@ -300,9 +300,9 @@ namespace MyS3.GUI
             info += "\r\n";
             info += "Encryption: AES-128 GCM";
             info += "\r\n";
-            info += "MyS3.GUI version " + typeof(MainForm).Assembly.GetName().Version;
+            info += "MyS3 version: " + typeof(MyS3Runner).Assembly.GetName().Version;
             info += "\r\n";
-            info += "MyS3 version " + typeof(MyS3Runner).Assembly.GetName().Version;
+            info += "MyS3 GUI version: " + typeof(MainForm).Assembly.GetName().Version;
             info += "\r\n";
             info += "Developer: Ove Bakken";
             info += "\r\n";
