@@ -885,8 +885,9 @@ namespace MyS3
                                         string offlineFilePath = myS3Path + offlineFilePathInsideMyS3;
                                         DateTime removedS3ObjectLastModifiedUTC = removedS3ObjectWithMetadata.LastModifiedUTC;
 
-                                        // Remove local file if older
+                                        // Remove local file if deleted
                                         if (copiedMyS3FileIndexDict.ContainsKey(offlineFilePathInsideMyS3) &&                     // File removed on a different client
+                                            !s3ObjectIndexDict.ContainsKey(offlineFilePathInsideMyS3) &&                          // File not overwritten
                                             removedS3ObjectLastModifiedUTC == copiedMyS3FileIndexDict[offlineFilePathInsideMyS3]) // Same last modified time = same file
                                         {                                                                                         // = should be removed locally                                            
                                             // Remove file
@@ -936,7 +937,7 @@ namespace MyS3
                                             DateTime s3ObjectLastModifiedUTC = s3ObjectIndexEntryKVP.Value.LastModifiedUTC;
 
                                             // When S3 object is new
-                                            if (s3ObjectLastModifiedUTC > offlineFileLastModifiedUTC)
+                                            if (s3ObjectLastModifiedUTC > offlineFileLastModifiedUTC.AddSeconds(5))
                                             {
                                                 // Skip if in use
                                                 if (Tools.IsFileLocked(offlineFilePath)) continue;
@@ -1005,7 +1006,7 @@ namespace MyS3
                                             DateTime s3ObjectLastModifiedUTC = s3ObjectIndexDict[offlineFilePathInsideMyS3].LastModifiedUTC;
 
                                             // Newer file locally
-                                            if (offlineFileLastModifiedUTC > s3ObjectLastModifiedUTC)
+                                            if (offlineFileLastModifiedUTC.AddSeconds(-5) > s3ObjectLastModifiedUTC) // local modified time may be off by a few seconds
                                                 lock (uploadListHashSet)
                                                     lock (downloadListHashSet)
                                                         lock (renameListDict)
