@@ -71,18 +71,20 @@ namespace MyS3.Tests
         {
             string encryptionPassword = "This is a test encryption password!";
 
-            string testFilePath = @"Images\Wallpapers\Nature\&¤#¤&&¤¤4456TRTGBFGBG ERUYH¤JH.jpg";
-
-            DateTime lastModifiedUTC = DateTime.UtcNow
-                .AddSeconds(new Random().Next(0, int.MaxValue));
-
-            long decryptedSize = new Random().Next(1000, int.MaxValue);
+            string testFilePath = Path.GetFullPath("../../../test image.jpg");
+            byte[] testFileData = File.ReadAllBytes(testFilePath);
+            string fileHash = Tools.DataToHash(testFileData);
+            DateTime lastModifiedUTC = File.GetLastWriteTimeUtc(testFilePath);
 
             // ---
 
-            S3ObjectMetadata testS3ObjectMetadata = new S3ObjectMetadata(testFilePath, lastModifiedUTC, decryptedSize, encryptionPassword);
+            S3ObjectMetadata testS3ObjectMetadata = new S3ObjectMetadata(testFilePath, fileHash, testFileData.Length, lastModifiedUTC, encryptionPassword);
             string testS3ObjectKeyWithMetadata = testS3ObjectMetadata.ToString();
-            output.WriteLine("Generated S3 object key with metadata: " + testS3ObjectKeyWithMetadata);
+
+            output.WriteLine("Generated S3 object key with metadata:");
+            output.WriteLine(testS3ObjectKeyWithMetadata);
+
+            Assert.True(S3ObjectMetadata.IsValidS3ObjectKeyWithMetadata(testS3ObjectKeyWithMetadata));
 
 
             // ---
@@ -90,11 +92,12 @@ namespace MyS3.Tests
             S3ObjectMetadata reconstructedTestS3ObjectKey = new S3ObjectMetadata(testS3ObjectKeyWithMetadata, encryptionPassword);
 
             Assert.Equal(testFilePath, reconstructedTestS3ObjectKey.OfflineFilePathInsideMyS3);
+            Assert.Equal(fileHash, reconstructedTestS3ObjectKey.FileHash);
             Assert.Equal(
                 lastModifiedUTC.ToLongDateString() + " " + lastModifiedUTC.ToLongTimeString(),
                 reconstructedTestS3ObjectKey.LastModifiedUTC.ToLongDateString() + " " + reconstructedTestS3ObjectKey.LastModifiedUTC.ToLongTimeString()
             );
-            Assert.Equal(decryptedSize, reconstructedTestS3ObjectKey.DecryptedSize);
+            Assert.Equal(testFileData.Length, reconstructedTestS3ObjectKey.DecryptedSize);
         }
     }
 }

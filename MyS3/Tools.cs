@@ -5,6 +5,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 
 using EncryptionAndHashingLibrary;
+using System.Security.Cryptography;
 
 namespace MyS3
 {
@@ -58,7 +59,7 @@ namespace MyS3
         public static bool IsFileLocked(string filePath)
         {
             // Check last write time
-            if (File.GetLastWriteTime(filePath) >= DateTime.Now) // Just closed file is considered as in use
+            if (File.GetLastWriteTimeUtc(filePath) >= DateTime.UtcNow) // Just closed file is considered as in use
                 return true;
 
             // Can file be opened = everything OK (Not reliable on *nix !)
@@ -174,6 +175,22 @@ namespace MyS3
         {
             return Convert.FromBase64String(
                 safeString.Replace("[BSLASH]", @"\").Replace("[FSLASH]", @"/"));
+        }
+
+        // --
+
+        public static string DataToHash(byte[] data) {
+
+            using (MD5 md5 = MD5.Create())
+            {
+                byte[] hashBytes = md5.ComputeHash(data);
+
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                    sb.Append(hashBytes[i].ToString("X2"));
+
+                return sb.ToString();
+            }
         }
     }
 }
