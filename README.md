@@ -56,3 +56,13 @@ The console client (CLI client):
 ## License
 
 Has a regular MIT license.
+
+## History
+
+MyS3 started out as a pet project the summer of 2020 when I was getting to know AWS S3 better.
+
+It was supposed to be a simple tool for encrypting and uploading files to S3. It was also supposed to be a lightweight Windows console executable. And I was only going to spend -2- weeks. But alas, I realized again and again that this very simple tool just needed a bit more functionality .. And before I knew it a month had gone by.
+
+I was always hurrying and trying to finish it in the end. This is the reason the project documentation is poor and lacking. (Because I usually keep everything in my head when doing small projects.)
+
+So a documented re-write is one day going to be necessary if more people start to use it.
