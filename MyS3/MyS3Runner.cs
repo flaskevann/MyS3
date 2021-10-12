@@ -1593,12 +1593,6 @@ namespace MyS3
                                     verboseLogFunc("File \"" + offlineFilePathInsideMyS3.Replace(@"\", @" \ ").Replace(@"/", @" / ") + "\" re-constructed [" +
                                         downloadCounter + "/" + (downloadCounter + remainingDownloads - 1) + "]");
 
-                                // ---
-
-                                // Remove from work queue
-                                lock (downloadListHashSet)
-                                    downloadListHashSet.Remove(offlineFilePathInsideMyS3);
-
                                 downloadCounter++;
                             }
                         }
@@ -1633,8 +1627,15 @@ namespace MyS3
                         // Clean up
                         try { if (File.Exists(encryptedDownloadFilePath)) File.Delete(encryptedDownloadFilePath); } catch (Exception) { }
 
-                        // Continue with the next download ..
-                        lock (downloadListHashSet) haveDownloads = downloadListHashSet.Count > 0;
+                        // Prepare for next download
+                        lock (downloadListHashSet) {
+
+                            // Remove from work queue
+                            downloadListHashSet.Remove(offlineFilePathInsideMyS3);
+
+                            // Continue with the next download ..
+                            haveDownloads = downloadListHashSet.Count > 0;
+                        }
                     }
 
                     Thread.Sleep(INACTIVITY_PAUSE);
